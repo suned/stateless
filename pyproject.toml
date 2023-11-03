@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "stateless"
+version = "0.1.0"
+description = ""
+authors = ["suned <sd@dybro-debel.dk>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typing-extensions = "^4.8.0"
+
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.6.1"
+ipdb = "^0.13.13"
+ipython = "^8.17.2"
+pytest = "^7.4.3"
+
+
+[tool.mypy]
+exclude = ["^.direnv/"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

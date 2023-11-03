@@ -1,0 +1,74 @@
+from dataclasses import dataclass
+
+from typing_extensions import Never
+
+from stateless import depend, Runtime, Depend, Effect
+from stateless.runtime import MissingAbility
+
+from pytest import raises
+
+
+@dataclass(frozen=True)
+class Super:
+    pass
+
+
+@dataclass(frozen=True)
+class Sub(Super):
+    pass
+
+
+@dataclass(frozen=True)
+class SubSub(Sub):
+    pass
+
+
+def test_run_with_unhandled_exception() -> None:
+    def fails() -> Depend[str, None]:
+        yield str
+        raise RuntimeError("oops")
+
+    e = fails()
+    with raises(RuntimeError, match="oops"):
+        Runtime().use("").run(e)
+
+
+def test_provide_multiple_sub_types() -> None:
+    sub: Super = Sub()
+    subsub: Super = SubSub()
+    assert Runtime().use(subsub).use(sub).run(depend(Super)) == Sub()
+    assert Runtime().use(sub).use(subsub).run(depend(Super)) == SubSub()
+
+
+def test_missing_dependency() -> None:
+    def effect() -> Depend[Super, Super]:
+        return (yield Super)
+
+    with raises(MissingAbility, match="Super") as info:
+        Runtime().run(effect())  # type: ignore
+
+    print(info.getrepr())
+
+    # test that the third frame is the yield
+    # expression in `effect` function above
+    # (first is Runtime().run(..)
+    # second is effect.throw in Runtime.run)
+    frame = info.traceback[2]
+    assert str(frame.path) == __file__
+    assert frame.lineno + 1 == 45
+
+
+def test_simple_dependency():
+    def effect() -> Depend[str, str]:
+        return (yield str)
+
+    assert Runtime().use("hi!").run(effect()) == "hi!"
+
+
+def test_simple_failure():
+    def effect() -> Effect[Never, ValueError, None]:
+        yield ValueError("oops")
+        return
+
+    with raises(ValueError, match="oops"):
+        Runtime().run(effect())
