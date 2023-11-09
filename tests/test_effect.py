@@ -1,5 +1,7 @@
-from pytest import raises
+from typing import NoReturn as Never
 from datetime import timedelta
+
+from pytest import raises
 
 from stateless import fail, catch, Runtime, depend, absorb, repeat, success, Success
 from stateless.schedule import Recurs, Spaced
@@ -11,7 +13,7 @@ class MockTime(Time):
         pass
 
 
-def test_fail():
+def test_fail() -> None:
     effect = fail(RuntimeError("oops"))
     with raises(RuntimeError, match="oops"):
         Runtime().run(effect)
@@ -25,16 +27,16 @@ def test_catch() -> None:
     assert str(error) == "oops"
 
 
-def test_absorb():
+def test_absorb() -> None:
     @absorb(ValueError)
-    def effect() -> None:
+    def effect() -> Never:
         raise ValueError("oops")
 
     with raises(ValueError, match="oops"):
         Runtime().run(effect())
 
 
-def test_depend():
+def test_depend() -> None:
     effect = depend(int)
     assert Runtime().use(0).run(effect) == 0
 

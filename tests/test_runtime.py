@@ -58,14 +58,14 @@ def test_missing_dependency() -> None:
     assert frame.lineno + 1 == 45
 
 
-def test_simple_dependency():
+def test_simple_dependency() -> None:
     def effect() -> Depend[str, str]:
         return (yield str)
 
     assert Runtime().use("hi!").run(effect()) == "hi!"
 
 
-def test_simple_failure():
+def test_simple_failure() -> None:
     def effect() -> Effect[Never, ValueError, None]:
         yield ValueError("oops")
         return

@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar, Any, Type, Tuple, Dict, Callable, Protocol
+from typing import Generic, TypeVar, Any, Type, Tuple, Dict, Callable, Protocol, cast
 from dataclasses import dataclass
 from functools import cache
 
@@ -20,7 +20,7 @@ class Exhausted(Exception):
     pass
 
 
-@cache
+@cache  # type: ignore
 def _get_ability(ability_type: Type[A], abilities: Tuple[A, ...]) -> A:
     for ability in abilities:
         if isinstance(ability, ability_type):
@@ -55,4 +55,4 @@ class Runtime(Generic[A]):
                 except MissingAbility as error:
                     ability_or_error = effect.throw(error)
         except StopIteration as e:
-            return e.value
+            return cast(R, e.value)

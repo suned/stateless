@@ -1,9 +1,4 @@
-from typing import (
-    TypeVar,
-    Callable,
-    Type,
-    ParamSpec,
-)
+from typing import TypeVar, Callable, Type, ParamSpec
 from collections.abc import Generator
 from functools import wraps
 
@@ -16,10 +11,12 @@ E = TypeVar("E", bound=Exception)
 P = ParamSpec("P")
 E2 = TypeVar("E2", bound=Exception)
 
-Effect = Generator[Type[A] | E, A, R]
-Depend = Effect[A, Never, R]
-Success = Depend[Never, R]
-Try = Generator[E, Never, R]
+# for some reason mypy yields "Expression type contains any" for these aliases
+# it doesn't seem to affect the typechecking though
+Effect = Generator[Type[A] | E, A, R]  # type: ignore
+Depend = Effect[A, Never, R]  # type: ignore
+Success = Depend[Never, R]  # type: ignore
+Try = Generator[E, Never, R]  # type: ignore
 
 
 class NoResult(Exception):
