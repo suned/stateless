@@ -2,12 +2,13 @@ from stateless.effect import (
     Effect,
     Depend,
     Try,
-    fail,
+    throw,
     catch,
     depend,
-    absorb,
+    throws,
     success,
     Success,
+    from_awaitable,
 )
 from stateless.schedule import Schedule
 from stateless.runtime import Runtime

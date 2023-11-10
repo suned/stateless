@@ -6,14 +6,12 @@ from abc import ABC, abstractmethod
 from stateless.effect import Depend
 
 
-class Console(ABC):
-    @abstractmethod
+class Console:
     def print(self, content: str) -> None:
-        pass
+        print(content)
 
-    @abstractmethod
     def input(self, prompt: str = "") -> str:
-        pass
+        return input(prompt)
 
 
 def print_line(content: str) -> Depend[Console, None]:
@@ -24,11 +22,3 @@ def print_line(content: str) -> Depend[Console, None]:
 def read_line(prompt: str = "") -> Depend[Console, str]:
     console = yield Console
     return console.input(prompt)
-
-
-class LiveConsole(Console):
-    def print(self, content: str) -> None:
-        print(content)
-
-    def input(self, prompt: str = "") -> str:
-        return input(prompt)

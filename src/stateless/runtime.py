@@ -1,8 +1,9 @@
 from typing import Generic, TypeVar, Any, Type, Tuple, Dict, Callable, Protocol, cast
 from dataclasses import dataclass
 from functools import cache
+import asyncio
 
-from stateless.effect import Effect
+from stateless.effect import Effect, Async
 
 
 A = TypeVar("A", covariant=True)
@@ -49,6 +50,13 @@ class Runtime(Generic[A]):
                             ability_or_error = effect.send(None)
                         case Exception() as error:
                             ability_or_error = effect.throw(error)
+                        case Async(awaitable):
+                            try:
+                                result = asyncio.run(awaitable)
+                            except Exception as e:
+                                ability_or_error = effect.throw(e)
+                            else:
+                                ability_or_error = effect.send(result)
                         case _ as ability_type:
                             ability = self.get_ability(ability_type)
                             ability_or_error = effect.send(ability)

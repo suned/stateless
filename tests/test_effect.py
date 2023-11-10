@@ -3,7 +3,17 @@ from datetime import timedelta
 
 from pytest import raises
 
-from stateless import fail, catch, Runtime, depend, absorb, repeat, success, Success
+from stateless import (
+    catch,
+    Runtime,
+    depend,
+    throw,
+    throws,
+    repeat,
+    success,
+    Success,
+    Try,
+)
 from stateless.schedule import Recurs, Spaced
 from stateless.time import Time
 
@@ -13,22 +23,37 @@ class MockTime(Time):
         pass
 
 
-def test_fail() -> None:
-    effect = fail(RuntimeError("oops"))
+def test_throw() -> None:
+    effect = throw(RuntimeError("oops"))
     with raises(RuntimeError, match="oops"):
         Runtime().run(effect)
 
 
 def test_catch() -> None:
-    effect = catch(lambda: fail(RuntimeError("oops")))()
+    effect = catch(lambda: throw(RuntimeError("oops")))()
     error = Runtime().run(effect)
 
     assert isinstance(error, RuntimeError)
     assert str(error) == "oops"
 
 
-def test_absorb() -> None:
-    @absorb(ValueError)
+def test_catch_success() -> None:
+    effect = catch(lambda: success(42))()
+    value = Runtime().run(effect)
+
+    assert value == 42
+
+
+def test_catch_unhandled() -> None:
+    def effect() -> Success[None]:
+        raise ValueError("oops")
+
+    with raises(ValueError, match="oops"):
+        Runtime().run(catch(effect)())
+
+
+def test_throws() -> None:
+    @throws(ValueError)
     def effect() -> Never:
         raise ValueError("oops")
 
@@ -48,3 +73,13 @@ def test_repeat() -> None:
 
     time: Time = MockTime()
     assert Runtime().use(time).run(effect()) == (42, 42)
+
+
+def test_repeat_on_error() -> None:
+    @repeat(Recurs(2, Spaced(timedelta(seconds=1))))
+    def effect() -> Try[RuntimeError, Never]:
+        return throw(RuntimeError("oops"))
+
+    time: Time = MockTime()
+    with raises(RuntimeError, match="oops"):
+        Runtime().use(time).run(effect())

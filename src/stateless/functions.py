@@ -2,7 +2,7 @@ from typing import Callable, ParamSpec, TypeVar, Tuple
 from functools import wraps
 
 from stateless.schedule import Schedule
-from stateless.effect import Effect, catch, fail
+from stateless.effect import Effect, catch, throw
 from stateless.time import Time, sleep
 
 A = TypeVar("A")
@@ -31,7 +31,7 @@ def repeat(
                 result = yield from catch(f)(*args, **kwargs)
                 match result:
                     case Exception() as error:
-                        return (yield from fail(error))  # type: ignore
+                        return (yield from throw(error))  # type: ignore
                     case _:
                         results.append(result)
                 yield from sleep(interval.total_seconds())

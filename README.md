@@ -268,7 +268,7 @@ Let's use `E` to model the errors of `Files.read_file`:
 
 
 ```python
-from stateless import Effect, fail
+from stateless import Effect, throw
 
 
 def read_file(path: str) -> Effect[Files, OSError, str]:
@@ -276,10 +276,10 @@ def read_file(path: str) -> Effect[Files, OSError, str]:
     try:
         return files.read_file(path)
     except OSError as e:
-        return (yield from fail(e))
+        return (yield from throw(e))
 ```
 
-The signature of `stateless.fail` is
+The signature of `stateless.throw` is
 
 ```python
 from typing import Never
@@ -287,19 +287,19 @@ from typing import Never
 from stateless import Effect
 
 
-def fail[E: Exception](e: E) -> Effect[Never, E, Never]:
+def throw[E: Exception](e: E) -> Effect[Never, E, Never]:
     ...
 ```
-In words `fail` returns an effect that just yields `e` and never returns. Because of this signature, if you assign the result of `fail` to a variable, you have to annotate it. But there is no meaningful type
-to annotate it with. So you're better off using the somewhat strange looking syntax `return (yield from fail(e))`.
+In words `throw` returns an effect that just yields `e` and never returns. Because of this signature, if you assign the result of `throw` to a variable, you have to annotate it. But there is no meaningful type
+to annotate it with. So you're better off using the somewhat strange looking syntax `return (yield from throw(e))`.
 
-At a slightly higher level you can use `stateless.absorb` that just catches exceptions and yields them as an effect
+At a slightly higher level you can use `stateless.throws` that just catches exceptions and yields them as an effect
 
 ```python
-from stateless import Depend, absorb
+from stateless import Depend, throws
 
 
-@absorb(OSError)
+@throws(OSError)
 def read_file(path: str) -> Depend[Files, str]:
     files = yield Files
     return files.read_file(path)

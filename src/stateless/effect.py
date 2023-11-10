@@ -1,6 +1,7 @@
-from typing import TypeVar, Callable, Type, ParamSpec
+from typing import TypeVar, Callable, Type, ParamSpec, overload, Generic, Awaitable
 from collections.abc import Generator
 from functools import wraps
+from dataclasses import dataclass
 
 from typing_extensions import Never
 
@@ -28,7 +29,7 @@ def success(result: R) -> Success[R]:
     return result
 
 
-def fail(reason: E) -> Try[E, Never]:
+def throw(reason: E) -> Try[E, Never]:
     yield reason
     raise NoResult()
 
@@ -37,9 +38,15 @@ def catch(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
     @wraps(f)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Depend[A, E | R]:
         try:
-            return (yield from f(*args, **kwargs))  # type: ignore
-        except Exception as e:
-            return e  # type: ignore
+            effect = f(*args, **kwargs)
+            while True:
+                ability_or_error = next(effect)
+                if isinstance(ability_or_error, Exception):
+                    return ability_or_error  # type: ignore
+                else:
+                    yield ability_or_error
+        except StopIteration as e:
+            return e.value  # type: ignore
 
     return wrapper
 
@@ -48,7 +55,7 @@ def depend(ability: Type[A]) -> Depend[A, A]:
     return (yield ability)
 
 
-def absorb(
+def throws(
     *errors: Type[E2],
 ) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E | E2, R]]]:
     def decorator(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Effect[A, E | E2, R]]:
@@ -57,8 +64,17 @@ def absorb(
             try:
                 return (yield from f(*args, **kwargs))
             except errors as e:
-                return (yield from fail(e))
+                return (yield from throw(e))
 
         return wrapper
 
     return decorator
+
+
+@dataclass(frozen=True)
+class Async(Generic[R]):
+    awaitable: Awaitable[R]
+
+
+def from_awaitable(awaitable: Awaitable[R]) -> Success[R]:
+    return (yield Async(awaitable))  # type: ignore
