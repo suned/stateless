@@ -69,12 +69,3 @@ def throws(
         return wrapper
 
     return decorator
-
-
-@dataclass(frozen=True)
-class Async(Generic[R]):
-    awaitable: Awaitable[R]
-
-
-def from_awaitable(awaitable: Awaitable[R]) -> Success[R]:
-    return (yield Async(awaitable))  # type: ignore

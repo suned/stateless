@@ -8,7 +8,6 @@ from stateless.effect import (
     throws,
     success,
     Success,
-    from_awaitable,
 )
 from stateless.schedule import Schedule
 from stateless.runtime import Runtime
