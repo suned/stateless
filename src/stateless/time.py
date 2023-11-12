@@ -1,8 +1,10 @@
 import time
+from dataclasses import dataclass
 
 from stateless.effect import Depend
 
 
+@dataclass(frozen=True)
 class Time:
     def sleep(self, seconds: float) -> None:
         time.sleep(seconds)

@@ -1,4 +1,13 @@
-from typing import TypeVar, Callable, Type, ParamSpec, overload, Generic, Awaitable
+from typing import (
+    TypeVar,
+    Callable,
+    Type,
+    ParamSpec,
+    overload,
+    Generic,
+    Awaitable,
+    TypeAlias,
+)
 from collections.abc import Generator
 from functools import wraps
 from dataclasses import dataclass
@@ -12,12 +21,10 @@ E = TypeVar("E", bound=Exception)
 P = ParamSpec("P")
 E2 = TypeVar("E2", bound=Exception)
 
-# for some reason mypy yields "Expression type contains any" for these aliases
-# it doesn't seem to affect the typechecking though
-Effect = Generator[Type[A] | E, A, R]  # type: ignore
-Depend = Effect[A, Never, R]  # type: ignore
-Success = Depend[Never, R]  # type: ignore
-Try = Generator[E, Never, R]  # type: ignore
+Effect: TypeAlias = Generator[Type[A] | E, A, R]
+Depend: TypeAlias = Generator[Type[A], A, R]
+Success: TypeAlias = Depend[Never, R]
+Try: TypeAlias = Generator[E, Never, R]
 
 
 class NoResult(Exception):
@@ -29,9 +36,8 @@ def success(result: R) -> Success[R]:
     return result
 
 
-def throw(reason: E) -> Try[E, Never]:
+def throw(reason: E) -> Try[E, Never]:  # type: ignore
     yield reason
-    raise NoResult()
 
 
 def catch(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
@@ -39,12 +45,13 @@ def catch(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Depend[A, E | R]:
         try:
             effect = f(*args, **kwargs)
+            ability_or_error = next(effect)
             while True:
-                ability_or_error = next(effect)
                 if isinstance(ability_or_error, Exception):
                     return ability_or_error  # type: ignore
                 else:
-                    yield ability_or_error
+                    ability = yield ability_or_error
+                    ability_or_error = effect.send(ability)
         except StopIteration as e:
             return e.value  # type: ignore
 

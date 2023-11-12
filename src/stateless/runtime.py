@@ -1,8 +1,18 @@
-from typing import Generic, TypeVar, Any, Type, Tuple, Dict, Callable, Protocol, cast
+from typing import (
+    Generic,
+    TypeVar,
+    Type,
+    Tuple,
+    cast,
+    overload,
+    Literal,
+)
 from dataclasses import dataclass
 from functools import cache
+from stateless.parallel import Parallel
 
 from stateless.effect import Effect
+from stateless.errors import MissingAbility
 
 
 A = TypeVar("A", covariant=True)
@@ -12,15 +22,7 @@ R = TypeVar("R")
 E = TypeVar("E", bound=Exception)
 
 
-class MissingAbility(Exception):
-    ability: Type[Any]
-
-
-class Exhausted(Exception):
-    pass
-
-
-@cache  # type: ignore
+@cache
 def _get_ability(ability_type: Type[A], abilities: Tuple[A, ...]) -> A:
     for ability in abilities:
         if isinstance(ability, ability_type):
@@ -38,7 +40,17 @@ class Runtime(Generic[A]):
     def get_ability(self, ability_type: Type[A]) -> A:
         return _get_ability(ability_type, self.abilities)  # type: ignore
 
-    def run(self, effect: Effect[A, E, R]) -> R:
+    @overload
+    def run(self, effect: Effect[A, E, R], return_errors: Literal[False] = False) -> R:
+        ...
+
+    @overload
+    def run(
+        self, effect: Effect[A, E, R], return_errors: Literal[True] = True
+    ) -> R | E:
+        ...
+
+    def run(self, effect: Effect[A, E, R], return_errors: bool = False) -> R | E:
         try:
             ability_or_error = next(effect)
 
@@ -48,8 +60,16 @@ class Runtime(Generic[A]):
                         case None:
                             ability_or_error = effect.send(None)
                         case Exception() as error:
-                            ability_or_error = effect.throw(error)
-                        case _ as ability_type:
+                            try:
+                                ability_or_error = effect.throw(error)
+                            except type(error) as e:
+                                if return_errors:
+                                    return cast(E, e)
+                                else:
+                                    raise e
+                        case ability_type if ability_type is Parallel:
+                            ability_or_error = effect.send(self)  # type: ignore
+                        case ability_type:
                             ability = self.get_ability(ability_type)
                             ability_or_error = effect.send(ability)
                 except MissingAbility as error:
