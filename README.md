@@ -243,6 +243,29 @@ runtime.run(print_file('foo.txt'))
 
 Our type-checker will likely infer the types `console` and `files` to be `MockConsole` and `MockFiles` respectively, so we need to annotate them with the super-types `Console` and `Files`. Otherwise it will cause the inferred type of `runtime` to be `Runtime[MockConsole, MockFiles]` which would not be type-safe when calling `run` with an argument of type `Effect[Console | Files, Never, None]` due to the variance of `collections.abc.Generator`.
 
+Besides `Effect` and `Depend`, `stateless` provides you with a few other type aliases that can save you a bit of typing. Firstly success which is just defined as:
+
+
+```python
+from typing import Never
+
+
+type Success[R] = Effect[Never, Never, R]
+```
+
+for effects that don't fail and don't require abilities (can be easily instantiated using the `stateless.success` function).
+
+Secondly the `Try` type alias, defined as:
+
+
+```python
+from typing import Never
+
+
+type Try[E, R] = Effect[Never, E, R]
+```
+For effects that do not require abilities, but might fail.
+
 ## Error Handling
 
 So far we haven't used the error type `E` for anything: We've simply parameterized it with `typing.Never`. We've claimed that this means that the effect doesn't fail. This is of course not literally true, as exceptions can still occur even if we parameterize `E` with `Never.`
