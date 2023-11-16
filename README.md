@@ -576,8 +576,61 @@ def this_works() -> Success[timedelta]:
 
 For example, `repeat` needs to yield from the schedule given as its argument to repeat the decorated function. If the schedule was just a generator it would only be possible to yield from the schedule the first time `f` in this example was called.
 
-retrying: TODO
+`stateless.retry` is like `repeat`, except that it returns succesfully
+when the decorated function yields no errors, or fails when the schedule is exhausted:
 
+```python
+from datetime import timedelta
+
+from stateless import retry, throw, Try, throw, success, Runtime
+from stateless.schedule import Recurs, Spaced
+from stateless.time import Time
+
+
+fail = True
+
+
+@retry(Recurs(2, Spaced(timedelta(seconds=2))))
+def f() -> Try[RuntimeError, str]:
+    global fail
+    if fail:
+        fail = False
+        return throw(RuntimeError('Whoops...'))
+    else:
+        return success('Hooray!')
+
+
+print(Runtime().use(Time()).run(f()))  # outputs: 'Hooray!'
+```
+
+## Memoization
+
+Effects can be memoized using the `stateless.memoize` decorator:
+
+
+```python
+from stateless import memoize, Depend
+from stateless.console import Console, print_line
+
+
+@memoize
+def f() -> Depend[Console, str]:
+    yield from print_line('f was called')
+    return 'done'
+
+
+def g() -> Depend[Console, tuple[str, str]]:
+    first = yield from f()
+    second = yield from f()
+    return first, second
+
+
+result = Runtime().use(Console()).run(f())  # outputs: 'f was called' once, even though the effect was yielded twice
+
+print(result)  # outputs: ('done', 'done')
+```
+`memoize` works like [`functools.lru_cache`](https://docs.python.org/3/library/functools.html#functools.lru_cache), in that the memoized effect
+is cached based on the arguments of the decorated function. In fact, `memoize` takes the same parameters as `functools.lru_cache` (`maxsize` and `typed`) with the same meaning.
 # Known Issues
 
 See the [issues](https://github.com/suned/stateless/issues) page.

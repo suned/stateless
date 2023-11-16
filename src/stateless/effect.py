@@ -9,8 +9,8 @@ from typing import (
     TypeAlias,
 )
 from collections.abc import Generator
-from functools import wraps
-from dataclasses import dataclass
+from functools import wraps, lru_cache, partial
+from dataclasses import dataclass, field
 
 from typing_extensions import Never
 
@@ -76,3 +76,61 @@ def throws(
         return wrapper
 
     return decorator
+
+
+@dataclass(frozen=True)
+class Memoize(Effect[A, E, R]):
+    effect: Effect[A, E, R]
+    _memoized_result: R | None = field(init=False, default=None)
+
+    def send(self, value: A) -> Type[A] | E:
+        if self._memoized_result is not None:
+            raise StopIteration(self._memoized_result)
+        try:
+            return self.effect.send(value)
+        except StopIteration as e:
+            object.__setattr__(self, "_memoized_result", e.value)
+            raise e
+
+    def throw(self, error: BaseException) -> Type[A] | E:
+        try:
+            return self.effect.throw(error)
+        except StopIteration as e:
+            object.__setattr__(self, "_memoized_result", e.value)
+            raise e
+
+
+@overload
+def memoize(
+    f: Callable[P, Effect[A, E, R]],
+) -> Callable[P, Effect[A, E, R]]:
+    ...
+
+
+@overload
+def memoize(
+    *,
+    maxsize: int | None = None,
+    typed: bool = False,
+) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]:
+    ...
+
+
+def memoize(
+    f: Callable[P, Effect[A, E, R]] | None = None,
+    *,
+    maxsize: int | None = None,
+    typed: bool = False,
+) -> (
+    Callable[P, Effect[A, E, R]]
+    | Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]
+):
+    if f is None:
+        return partial(memoize, maxsize=maxsize, typed=typed)
+
+    @lru_cache(maxsize=maxsize, typed=typed)
+    @wraps(f)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> Effect[A, E, R]:
+        return Memoize(f(*args, **kwargs))
+
+    return wrapper  # type: ignore

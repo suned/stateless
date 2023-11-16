@@ -1,5 +1,6 @@
 from typing import NoReturn as Never
 from datetime import timedelta
+from dataclasses import dataclass
 
 from pytest import raises
 
@@ -13,6 +14,10 @@ from stateless import (
     success,
     Success,
     Try,
+    Depend,
+    memoize,
+    retry,
+    Effect,
 )
 from stateless.schedule import Recurs, Spaced
 from stateless.time import Time
@@ -83,3 +88,49 @@ def test_repeat_on_error() -> None:
     time: Time = MockTime()
     with raises(RuntimeError, match="oops"):
         Runtime().use(time).run(effect())
+
+
+def test_retry() -> None:
+    @repeat(Recurs(2, Spaced(timedelta(seconds=1))))
+    def effect() -> Try[RuntimeError, Never]:
+        return throw(RuntimeError("oops"))
+
+    time: Time = MockTime()
+    with raises(RuntimeError, match="oops"):
+        Runtime().use(time).run(effect())
+
+
+def test_retry_on_eventual_success() -> None:
+    counter = 0
+
+    @retry(Recurs(2, Spaced(timedelta(seconds=1))))
+    def effect() -> Effect[Never, RuntimeError, int]:
+        nonlocal counter
+        if counter == 1:
+            return success(42)
+        counter += 1
+        return throw(RuntimeError("oops"))
+
+    time: Time = MockTime()
+    assert Runtime().use(time).run(effect()) == 42
+
+
+def test_memoize() -> None:
+    counter = 0
+
+    @memoize
+    def f(_: int) -> Success[int]:
+        nonlocal counter
+        counter += 1
+        return success(counter)
+
+    def g() -> Success[tuple[int, int, int, int]]:
+        i1 = yield from f(0)
+        i2 = yield from f(1)
+        e: Success[int] = f(0)
+        i3 = yield from e
+        i4 = yield from e
+        return (i1, i2, i3, i4)
+
+    assert Runtime().run(g()) == (1, 2, 1, 1)
+    assert counter == 2

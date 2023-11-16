@@ -8,8 +8,9 @@ from stateless.effect import (
     throws,
     success,
     Success,
+    memoize,
 )
 from stateless.parallel import parallel, task
 from stateless.schedule import Schedule
 from stateless.runtime import Runtime
-from stateless.functions import repeat
+from stateless.functions import repeat, retry
