@@ -3,9 +3,9 @@
 Statically typed, purely functional effects for Python.
 
 # Motivation
-Programming with side-effects is hard: To reason about a unit in your code, like a function, you need to know what the functions it's calling are doing to the state of the program, and understand how that affects what you're trying to achieve.
+Programming with side-effects is hard: To reason about a unit in your code, like a function, you need to know what the functions it calls are doing to the state of the program, and understand how that affects what you're trying to achieve.
 
-Programming without side-effects is _less_ hard: To reason about a unit in you code, like a function, you can focus on what that function is doing, since the functions it's calling doesn't affect the state of the program in any other way than returning a value.
+Programming without side-effects is _less_ hard: To reason about a unit in you code, like a function, you can focus on what _that_ function is doing, since the functions it calls don't affect the state of the program in any way, except for returning values.
 
 But of course side-effects can't be avoided, since what we ultimately care about in programming are just that: The side effects, such as printing to the console or writing to a database.
 
@@ -448,9 +448,9 @@ def process[**P, A, E: Exception, R](f: Callable[P, Effect[A, E, R]]) -> Callabl
 def thread[**P, A, E: Exception, R](f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
     ...
 ```
-Decorating functions with `stateless.parallel.thread` indicate to `stateless` your intention for the resulting task to be run in a separate thread. Decorating functions with `stateless.parallel.process` indicate to `stateless` your intention for the resulting task to be run in a separate process.
+Decorating functions with `stateless.parallel.thread` indicate to `stateless` your intention for the resulting task to be run in a separate thread. Decorating functions with `stateless.parallel.process` indicate your intention for the resulting task to be run in a separate process.
 
-Because of the [GIL](https://en.wikipedia.org/wiki/Global_interpreter_lock), using `stateless.parallel.thread` only makes sense for function returning effects that are [I/O bound](https://en.wikipedia.org/wiki/I/O_bound). For CPU bound effects, you will want to use `stateless.parallel.process`.
+Because of the [GIL](https://en.wikipedia.org/wiki/Global_interpreter_lock), using `stateless.parallel.thread` only makes sense for functions returning effects that are [I/O bound](https://en.wikipedia.org/wiki/I/O_bound). For CPU bound effects, you will want to use `stateless.parallel.process`.
 
 To run effects in parallel, you use the `stateless.parallel` function. It's signature is roughly:
 
@@ -479,7 +479,10 @@ def sing() -> Success[str]:
 
 
 def duet() -> Depend[Parallel, tuple[str, str]]:
-    result = yield from parallel(thread(sing)(), process(sing)())
+    result = yield from parallel(
+        thread(sing)(),
+        process(sing)()
+    )
 ```
 When using the `Parallel` ability, you must use it as a context manager, because it manages multiple resources to enable concurrent execution of effects:
 ```python
