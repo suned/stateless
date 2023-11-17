@@ -5,7 +5,7 @@ from multiprocessing.pool import ThreadPool
 
 from pytest import raises, fixture
 
-from stateless import throws, Success, catch, Runtime, Effect, success
+from stateless import throws, Success, catch, Runtime, Effect, success, Depend
 from stateless.parallel import process, thread, parallel, Parallel
 
 
@@ -77,6 +77,18 @@ def test_io_effect(runtime: Runtime[Parallel]) -> None:
 
 def ping() -> str:
     return "pong"
+
+
+def test_yield_from_parallel(runtime: Runtime[Parallel]) -> None:
+    def f() -> Success[str]:
+        return success("done")
+
+    def g() -> Depend[Parallel, tuple[str, str]]:
+        result = yield from parallel(thread(f)(), process(f)())
+        return result
+
+    result = runtime.run(g())
+    assert result == ("done", "done")
 
 
 def test_passed_in_resources() -> None:

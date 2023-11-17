@@ -483,6 +483,7 @@ def duet() -> Depend[Parallel, tuple[str, str]]:
         thread(sing)(),
         process(sing)()
     )
+    return result
 ```
 When using the `Parallel` ability, you must use it as a context manager, because it manages multiple resources to enable concurrent execution of effects:
 ```python
