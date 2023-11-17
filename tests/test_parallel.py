@@ -6,7 +6,7 @@ from multiprocessing.pool import ThreadPool
 from pytest import raises, fixture
 
 from stateless import throws, Success, catch, Runtime, Effect, success
-from stateless.parallel import task, parallel, Parallel
+from stateless.parallel import process, thread, parallel, Parallel
 
 
 @fixture(scope="module", name="runtime")
@@ -21,7 +21,7 @@ def test_error_handling(runtime: Runtime[Parallel]) -> None:
         raise ValueError("error")
 
     def g() -> Effect[Parallel, ValueError, tuple[str]]:
-        result = yield from parallel(f())
+        result = yield from parallel(thread(f)())
         return result
 
     result = runtime.run(catch(g)())
@@ -35,7 +35,7 @@ def test_unhandled_errors(runtime: Runtime[Parallel]) -> None:
 
     with raises(ValueError, match="error"):
         # todo: there is a bug in mypy's inference
-        effect = parallel(f())
+        effect = parallel(thread(f)())
         runtime.run(effect)
 
 
@@ -58,7 +58,7 @@ def test_pickling() -> None:
 
 
 def test_cpu_effect(runtime: Runtime[Parallel]) -> None:
-    @task
+    @process
     def f() -> Success[str]:
         return success("done")
 
@@ -67,6 +67,7 @@ def test_cpu_effect(runtime: Runtime[Parallel]) -> None:
 
 
 def test_io_effect(runtime: Runtime[Parallel]) -> None:
+    @thread
     def f() -> Success[str]:
         return success("done")
 

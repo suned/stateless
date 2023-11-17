@@ -423,6 +423,35 @@ def this_is_easy():
 ```
 
 ## Parallel Effects
+Two challenges present themselves when running generator based effects in parallel:
+
+- Generators aren't thread-safe.
+- Generators can't be pickled.
+
+Hence, instead of sharing effects between threads and processes to run them in parallel, `stateless` gives you tools to share _functions_ that return effects plus _arguments_ to those functions between threads and processes.
+
+`stateless` calls a function that returns an effect plus arguments to pass to that function a _task_, represented by the `stateless.parallel.Task` class.
+
+`stateless` provides two decorators for instantiating `Task` instances: `stateless.parallel.thread` and `stateless.parallel.process`. Their signatures are:
+
+
+```python
+from typing import Callable
+
+from stateless import Effect
+from stateless.parallel import Task
+
+
+def process[**P, A, E: Exception, R](f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
+    ...
+
+def thread[**P, A, E: Exception, R](f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
+    ...
+```
+Decorating functions with `stateless.parallel.thread` indicate to `stateless` your intention for the resulting task to be run in a separate thread. Decorating functions with `stateless.parallel.process` indicate to `stateless` your intention for the resulting task to be run in a separate process.
+
+Because of the [GIL](https://en.wikipedia.org/wiki/Global_interpreter_lock), using `stateless.parallel.thread` only makes sense for function returning effects that are [I/O bound](https://en.wikipedia.org/wiki/I/O_bound). For CPU bound effects, you will want to use `stateless.parallel.process`.
+
 To run effects in parallel, you use the `stateless.parallel` function. It's signature is roughly:
 
 
@@ -431,18 +460,18 @@ from stateless import Effect
 from stateless.parallel import Parallel
 
 
-def parallel[A, E: Exception, R](*effects: Effect[A, E, R]) -> Effect[A | Parallel, E, tuple[R, ...]]:
+def parallel[A, E: Exception, R](*tasks: Task[A, E, R]) -> Effect[A | Parallel, E, tuple[R, ...]]:
     ...
 ```
 (in reality `parallel` is overloaded to correctly union abilities and errors, and reflect the result types of each effect in the result type of the returned effect.)
 
-In words, `parallel` accepts a variable number of effects as its argument, and returns a new effect that depends on the `stateless.parallel.Parallel` ability. When executed, the effect returned by `parallel` will run the effects given as its arguments concurrently.
+In words, `parallel` accepts a variable number of tasks as its argument, and returns a new effect that depends on the `stateless.parallel.Parallel` ability. When executed, the effect returned by `parallel` will run the tasks given as its arguments concurrently.
 
 
 Here is a full example:
 ```python
 from stateless import parallel, Success, success, Depend
-from stateless.parallel import Parallel
+from stateless.parallel import thread, process, Parallel
 
 
 def sing() -> Success[str]:
@@ -450,7 +479,7 @@ def sing() -> Success[str]:
 
 
 def duet() -> Depend[Parallel, tuple[str, str]]:
-    result = yield from parallel(sing(), sing())
+    result = yield from parallel(thread(sing)(), process(sing)())
 ```
 When using the `Parallel` ability, you must use it as a context manager, because it manages multiple resources to enable concurrent execution of effects:
 ```python
@@ -461,56 +490,21 @@ from stateless.parallel import Parallel
 with Parallel() as ability:
     print(Runtime().use(ability).run(duet()))  # outputs: ("🎵", "🎵")
 ```
-In the examples above, the two effects are executed in a separate thread. Because of the [GIL](https://en.wikipedia.org/wiki/Global_interpreter_lock), this only makes sense for effects that are [I/O bound](https://en.wikipedia.org/wiki/I/O_bound). For CPU bound effects, you will want to run them in a separate process instead.
 
-Since generators in Python can't be pickled, you can't directly run effects in other processes.
-
-To get around this, you have to use the `stateless.task` decorator. Its signature is:
-
-
-
-```python
-from stateless.parallel import Task
-
-
-def task[**P, A, E: Exception, R](f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
-    pass
-```
-
-`stateless.parallel.Task` is an object that simple captures the arguments eventually passed to functions decorated with `task`. This makes it possible to send the `Task` instance to
-a separate process, call the decorated function to get an effect, and execute it in the separate process.
-
-
-Here is a full example using the `sing` function from above:
-
-
-```python
-from stateless import task, parallel, Depend, Runtime
-from stateless.parallel import Parallel
-
-
-def trio() -> Depend[Parallel, tuple[str, str]]:
-    result = yield from parallel(sing(), sing(), task(sing)())
-    return result
-
-
-with Parallel() as ability:
-    Runtime().use(ability).run(trio())
-```
-In this example the final `sing` invocation will be run in a separate process because its wrapped with `task`. Note that although `task` is strictly speaking a decorator, it doesn't return a `stateless.Effect` instance. For this reason, it's probably not a good idea to use it as `@task`, since this
-reduces the re-usability of the decorated function. Use it at the call site as shown in the example instead.
+In this example the first `sing` invocation will be run in a separate thread process because its wrapped with `thread`, and the second `sing` invocation will be run in a separate process because it's wrapped by `process`. Note that although `thread` and `process` are strictly speaking decorators, they don't return `stateless.Effect` instances. For this reason, it's probably not a good idea to use them as `@thread` or `@process`, since this
+reduces the re-usability of the decorated function. Use them at the call site as shown in the example instead.
 
 `stateless.parallel.Task` _does_ however implement `__iter__` to return the result of the decorated function, so you _can_ yield from them if necessary:
 
 ```python
-from stateless import Success, task
+from stateless import Success, thread
 
 
 def sing_more() -> Success[str]:
     # This is rather pointless, 
     # but helps you out if you for some 
-    # reason have used @task instead of task(...)
-    note = yield from task(sing)()
+    # reason have used @thread instead of thread(...)
+    note = yield from thread(sing)()
     return note * 2  
 ```
 If you need more control over the resources managed by `stateless.parallel.Parallel`, you can pass them as arguments:
@@ -535,7 +529,7 @@ effects in other processes.
 Note that if you pass in in the thread pool and proxy pool as arguments, `stateless.parallel.Parallel` will not exit them for you when it itself exits: you need to manage their state yourself.
 
 
-You can of course subclass `stateless.parallel.Parallel` to change the interpretation of this ability (for example in tests). The two main functions you'll want to override is `run_tasks` and `run_effects`:
+You can of course subclass `stateless.parallel.Parallel` to change the interpretation of this ability (for example in tests). The two main functions you'll want to override is `run_thread_tasks` and `run_cpu_tasks`:
 
 ```python
 from stateless import Runtime, Effect
@@ -546,15 +540,15 @@ class MockParallel(Parallel):
     def __init__(self):
         pass
 
-    def run_tasks(self, 
+    def run_cpu_tasks(self, 
                  runtime: Runtime[object], 
                  tasks: Sequence[Task[object, Exception, object]]) -> Tuple[object, ...]:
         return tuple(runtime.run(iter(task)) for task in tasks)
     
-    def run_effects(self
+    def run_thread_tasks(self
                     runtime: Runtime[object],
                     effects: Sequence[Effect[object, Exception, object]]) -> Tuple[object, ...]:
-        return tuple(runtime.run(effect) for effect in effects)
+        return tuple(runtime.run(iter(task)) for task in tasks)
 ```
 ## Repeating and Retrying Effects
 

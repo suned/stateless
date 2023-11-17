@@ -9,7 +9,6 @@ from typing import (
     TYPE_CHECKING,
     Literal,
     cast,
-    TypeAlias,
 )
 from types import TracebackType, GeneratorType
 from dataclasses import dataclass
@@ -35,6 +34,7 @@ class Task(Generic[A, E, R]):
     f: Callable[..., Effect[A, E, R]]
     args: tuple[object, ...]
     kwargs: dict[str, object]
+    use_threads: bool
 
     def __iter__(self) -> Effect[A, E, R]:
         return self.f(*self.args, **self.kwargs)
@@ -148,17 +148,17 @@ class Parallel:
 
         return None
 
-    def run_effects(
+    def run_thread_tasks(
         self,
         runtime: "Runtime[object]",
-        effects: Sequence[Effect[object, Exception, object]],
+        effects: Sequence[Task[object, Exception, object]],
     ) -> Sequence[object]:
         self.thread_pool.__enter__()
         return self.thread_pool.map(
             lambda task: runtime.run(iter(task), return_errors=True), effects
         )
 
-    def run_tasks(
+    def run_process_tasks(
         self,
         runtime: "Runtime[object]",
         tasks: Sequence[Task[object, Exception, object]],
@@ -171,21 +171,19 @@ class Parallel:
     def run(
         self,
         runtime: "Runtime[Parallel]",
-        tasks: tuple[
-            Effect[object, Exception, object] | Task[object, Exception, object], ...
-        ],
+        tasks: tuple[Task[object, Exception, object], ...],
     ) -> tuple[object, ...] | Exception:
         if self.state == "init":
             raise RuntimeError("Parallel must be used as a context manager")
         elif self.state == "exited":
             raise RuntimeError("Parallel context manager has already exited")
         thread_tasks_and_indices = [
-            (i, task) for i, task in enumerate(tasks) if isinstance(task, GeneratorType)
+            (i, task) for i, task in enumerate(tasks) if task.use_threads
         ]
 
         if thread_tasks_and_indices:
             thread_indices, thread_tasks = zip(*thread_tasks_and_indices)
-            thread_results = self.run_effects(runtime, thread_tasks)
+            thread_results = self.run_thread_tasks(runtime, thread_tasks)
             for result in thread_results:
                 if isinstance(result, Exception):
                     return result
@@ -194,12 +192,12 @@ class Parallel:
             thread_indices = ()
 
         cpu_tasks_and_indices = [
-            (i, task) for i, task in enumerate(tasks) if isinstance(task, Task)
+            (i, task) for i, task in enumerate(tasks) if not task.use_threads
         ]
 
         if cpu_tasks_and_indices:
             cpu_indices, cpu_tasks = zip(*cpu_tasks_and_indices)
-            cpu_results = self.run_tasks(runtime, cpu_tasks)
+            cpu_results = self.run_process_tasks(runtime, cpu_tasks)
             for result in cpu_results:
                 if isinstance(result, Exception):
                     return result
@@ -242,23 +240,23 @@ P = ParamSpec("P")
 
 # I'm not sure why this is overload is necessary, but mypy complains without it
 @overload
-def task(f: Callable[P, Effect[A1, E, R]]) -> Callable[P, Task[A1, E, R]]:
+def process(f: Callable[P, Effect[A1, E, R]]) -> Callable[P, Task[A1, E, R]]:
     ...
 
 
 @overload
-def task(f: Callable[P, Effect[A1 | A2, E, R]]) -> Callable[P, Task[A1 | A2, E, R]]:
+def process(f: Callable[P, Effect[A1 | A2, E, R]]) -> Callable[P, Task[A1 | A2, E, R]]:
     ...
 
 
 @overload
-def task(
+def process(
     f: Callable[P, Effect[A1 | A2 | A3, E, R]]
 ) -> Callable[P, Task[A1 | A2 | A3, E, R]]:
     ...
 
 
-def task(  # type: ignore
+def process(  # type: ignore
     f: Callable[P, Effect[object, Exception, object]]
 ) -> Callable[P, Task[object, Exception, object]]:
     @wraps(f)
@@ -267,12 +265,42 @@ def task(  # type: ignore
             f,
             args,
             kwargs,
+            use_threads=False,
         )
 
     return wrapper
 
 
-_TaskOrEffect: TypeAlias = Task[A, E, R] | Effect[A, E, R]
+@overload
+def thread(f: Callable[P, Effect[A1, E, R]]) -> Callable[P, Task[A1, E, R]]:
+    ...
+
+
+@overload
+def thread(f: Callable[P, Effect[A1 | A2, E, R]]) -> Callable[P, Task[A1 | A2, E, R]]:
+    ...
+
+
+@overload
+def thread(
+    f: Callable[P, Effect[A1 | A2 | A3, E, R]]
+) -> Callable[P, Task[A1 | A2 | A3, E, R]]:
+    ...
+
+
+def thread(  # type: ignore
+    f: Callable[P, Effect[object, Exception, object]]
+) -> Callable[P, Task[object, Exception, object]]:
+    @wraps(f)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> Task[object, Exception, object]:
+        return Task(
+            f,
+            args,
+            kwargs,
+            use_threads=True,
+        )
+
+    return wrapper
 
 
 @overload  # type: ignore
@@ -281,22 +309,22 @@ def parallel() -> Effect[Parallel, Exception, tuple[()]]:
 
 
 @overload
-def parallel(e1: _TaskOrEffect[A1, E1, R1], /) -> Effect[A1 | Parallel, E1, tuple[R1]]:
+def parallel(t1: Task[A1, E1, R1], /) -> Effect[A1 | Parallel, E1, tuple[R1]]:
     ...
 
 
 @overload
 def parallel(
-    e1: _TaskOrEffect[A1, E1, R1], e2: _TaskOrEffect[A2, E2, R2], /
+    t1: Task[A1, E1, R1], t2: Task[A2, E2, R2], /
 ) -> Effect[A1 | A2 | Parallel, E1 | E2, tuple[R1, R2]]:
     ...
 
 
 @overload
 def parallel(
-    e1: _TaskOrEffect[A1, E1, R1],
-    e2: _TaskOrEffect[A2, E2, R2],
-    e3: _TaskOrEffect[A3, E3, R3],
+    t1: Task[A1, E1, R1],
+    t2: Task[A2, E2, R2],
+    t3: Task[A3, E3, R3],
     /,
 ) -> Effect[A1 | A2 | A3 | Parallel, E1 | E2 | E3, tuple[R1, R2, R3]]:
     ...
@@ -304,13 +332,13 @@ def parallel(
 
 @overload
 def parallel(
-    *tasks: _TaskOrEffect[A1, E1, R1],
+    *tasks: Task[A1, E1, R1],
 ) -> Effect[A1 | Parallel, E1, tuple[R1, ...]]:
     ...
 
 
 def parallel(  # type: ignore
-    *tasks: _TaskOrEffect[object, Exception, object],
+    *tasks: Task[object, Exception, object],
 ) -> Effect[Parallel, Exception, tuple[object, ...]]:
     runtime: "Runtime[Parallel]" = cast("Runtime[Parallel]", (yield Parallel))
     ability = runtime.get_ability(Parallel)
