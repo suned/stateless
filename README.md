@@ -1,13 +1,22 @@
 # stateless
 
-Statically typed, purely functional algebraic effects for Python.
+Statically typed, purely functional effects for Python.
 
-# Concepts
+# Motivation
+Programming with side-effects is hard: To reason about a unit in your code, like a function, you need to know what the functions it's calling are doing to the state of the program, and understand how that affects what you're trying to achieve.
+
+Programming without side-effects is _less_ hard: To reason about a unit in you code, like a function, you can focus on what that function is doing, since the functions it's calling doesn't affect the state of the program in any other way than returning a value.
+
+But of course side-effects can't be avoided, since what we ultimately care about in programming are just that: The side effects, such as printing to the console or writing to a database.
+
+Functional effect systems like `stateless` aim to make programming with side-effects less hard. We do this by separating the specification of side-effects from the interpretation, such that functions that need to perform side effects do so indirectly via the effect system.
+
+As a result, "business logic" code never performs side-effects, which makes it easier to reason about, test and re-use.
+
+# Guide
 
 
 ## Effects, Abilities and Runtime
-
-`stateless` is a purely functional effect system. The main point of a purely functional effect system is to enable you to work with side-effects such as doing IO in a purely functional way.
 
 When programming with `stateless` you will describe your program's side-effects using the `stateless.Effect` type. This is in fact just a type alias:
 
@@ -18,7 +27,7 @@ from typing import Generator, Type
 
 type Effect[A, E: Exception, R] = Generator[Type[A] | E, A, R]
 ```
- In other words, `Effect` takes three type parameters: `A`, `E` and `R`. Lets break that down:
+ In other words, `Effect` takes three type parameters: `A`, `E` and `R`. Let's break that down:
 
  The `A` in `Effect` stands for "Ability". This is the type of value that an effect depends on in order to produce its result.
 
@@ -103,9 +112,9 @@ from stateless import Runtime
 runtime = Runtime().use("Hello, world!")
 runtime.run(hello_world()) # outputs: Hello, world!
 ```
-Cool. Okay maybe not. But one thing to note is that the `A` type parameter of `Effect` and `Runtime` work together to ensure type safe dependency injection of abilities.
+Cool. Okay maybe not. But one thing to note is that the `A` type parameter of `Effect` and `Runtime` work together to ensure type safe dependency injection of abilities: You can't forget to provide a dependency to an effect without getting a type error.
 
-Let's look at a bigger example. The main point of a purely functional effect system is to enable side-effects such as IO in a purely functional way. So lets implement some abilities for doing side-effects.
+Let's look at a bigger example. The main point of a purely functional effect system is to enable side-effects such as IO in a purely functional way. So let's implement some abilities for doing side-effects.
 
 We'll start with an ability we'll call `Console` for writing to the console:
 
