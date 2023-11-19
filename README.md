@@ -163,7 +163,7 @@ def print_file(path: str) -> Depend[Console | Files, None]:
     files = yield Files
     console = yield Console
 
-    content = files.read("foo.txt")  # type-checker error!
+    content = files.read(path)  # type-checker error!
     console.print(content)
 ```
 That's a bit annoying. Since the "send" type of our generator can be both `Files` and `Console`, our type-checker doesn't know which type is going to sent to `print_files` from `Runtime` at which point.
@@ -191,7 +191,7 @@ def print_file(path: str) -> Depend[Console | Files, None]:
     files = yield from depend(Files)
     console = yield from depend(Console)
     
-    content = files.read("foo.txt")
+    content = files.read(path)
     console.print(content)
 ```
 `depend` is also a good example of how you can build complex effects using functions that return simpler effects using `yield from`:
@@ -205,7 +205,7 @@ def get_str() -> Depend[str, str]:
 
 
 def get_int() -> Depend[str | int, tuple[str, int]]:
-    s = yield from f()
+    s = yield from get_str()
     i = yield from depend(int)
     
     return (s, i)
