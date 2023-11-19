@@ -63,7 +63,7 @@ class Runtime(Generic[A]):
                             try:
                                 ability_or_error = effect.throw(error)
                             except type(error) as e:
-                                if return_errors:
+                                if return_errors and e is error:
                                     return cast(E, e)
                                 else:
                                     raise e

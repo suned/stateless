@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from typing_extensions import Never
 
-from stateless import depend, Runtime, Depend, Effect
+from stateless import depend, Runtime, Depend, Effect, Try, Success
 from stateless.runtime import MissingAbility
 
 from pytest import raises
@@ -72,3 +72,29 @@ def test_simple_failure() -> None:
 
     with raises(ValueError, match="oops"):
         Runtime().run(effect())
+
+
+def test_return_errors() -> None:
+    def fails() -> Try[ValueError, None]:
+        yield ValueError("oops")
+        return
+
+    result = Runtime().run(fails(), return_errors=True)
+    assert isinstance(result, ValueError)
+    assert result.args == ("oops",)
+
+
+def test_return_errors_on_duplicate_error_type() -> None:
+    def fails() -> Try[ValueError, None]:
+        yield ValueError("oops")
+        return
+
+    def catches() -> Try[ValueError, None]:
+        try:
+            yield from fails()
+        except ValueError as e:
+            pass
+        raise ValueError("oops again")
+
+    with raises(ValueError, match="oops again"):
+        Runtime().run(catches(), return_errors=True)
