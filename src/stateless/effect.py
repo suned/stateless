@@ -7,10 +7,12 @@ from typing import (
     Generic,
     Awaitable,
     TypeAlias,
+    cast,
 )
 from collections.abc import Generator
 from functools import wraps, lru_cache, partial
 from dataclasses import dataclass, field
+from types import TracebackType
 
 from typing_extensions import Never
 
@@ -58,8 +60,9 @@ def catch(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
     return wrapper
 
 
-def depend(ability: Type[A]) -> Depend[A, A]:
-    return (yield ability)
+def depend(ability: Type[A]) -> Generator[Type[A], object, A]:
+    a = yield ability
+    return cast(A, a)
 
 
 def throws(
@@ -92,9 +95,15 @@ class Memoize(Effect[A, E, R]):
             object.__setattr__(self, "_memoized_result", e.value)
             raise e
 
-    def throw(self, error: BaseException) -> Type[A] | E:
+    def throw(
+        self,
+        exc_type: Type[BaseException] | BaseException,
+        error: BaseException | object | None = None,
+        exc_tb: TracebackType | None = None,
+        /,
+    ) -> Type[A] | E:
         try:
-            return self.effect.throw(error)
+            return self.effect.throw(exc_type, error, exc_tb)  # type: ignore
         except StopIteration as e:
             object.__setattr__(self, "_memoized_result", e.value)
             raise e
@@ -116,7 +125,7 @@ def memoize(
     ...
 
 
-def memoize(
+def memoize(  # type: ignore
     f: Callable[P, Effect[A, E, R]] | None = None,
     *,
     maxsize: int | None = None,
@@ -126,7 +135,7 @@ def memoize(
     | Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]
 ):
     if f is None:
-        return partial(memoize, maxsize=maxsize, typed=typed)
+        return partial(memoize, maxsize=maxsize, typed=typed)  # type: ignore
 
     @lru_cache(maxsize=maxsize, typed=typed)
     @wraps(f)
