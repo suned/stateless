@@ -3,9 +3,9 @@
 Statically typed, purely functional effects for Python.
 
 # Motivation
-Programming with side-effects is hard: To reason about a unit in your code, like a function, you need to know what the functions it calls are doing to the state of the program, and understand how that affects what you're trying to achieve.
+Programming with side-effects is hard: To reason about a unit in your code, like a function, you need to know what the other units in the program are doing to the program state, and understand how that affects what you're trying to achieve.
 
-Programming without side-effects is _less_ hard: To reason about a unit in you code, like a function, you can focus on what _that_ function is doing, since the functions it calls don't affect the state of the program in any way, except for returning values.
+Programming without side-effects is _less_ hard: To reason about a unit in you code, like a function, you can focus on what _that_ function is doing, since the units it interacts with don't affect the state of the program in any way.
 
 But of course side-effects can't be avoided, since what we ultimately care about in programming are just that: The side effects, such as printing to the console or writing to a database.
 
@@ -17,23 +17,24 @@ As a result, "business logic" code never performs side-effects, which makes it e
 
 
 ## Effects, Abilities and Runtime
-
-When programming with `stateless` you will describe your program's side-effects using the `stateless.Effect` type. This is in fact just a type alias:
+`stateless` is a functional effect system for Python built around a pattern using [generator functions](https://docs.python.org/3/reference/datamodel.html#generator-functions). When programming with `stateless` you will describe your program's side-effects using the `stateless.Effect` type. This is in fact just a type alias for a generator:
 
 
 ```python
-from typing import Generator, Type
+from typing import Any, Generator, Type
 
 
-type Effect[A, E: Exception, R] = Generator[Type[A] | E, A, R]
+type Effect[A, E: Exception, R] = Generator[Type[A] | E, Any, R]
 ```
- In other words, `Effect` takes three type parameters: `A`, `E` and `R`. Let's break that down:
+ In other words, an `Effect` is a generator that can yield classes of type `A` or exceptions of type `E`, can be sent anything, and returns results of type `R`. Let's break that down a bit further:
 
- The `A` in `Effect` stands for "Ability". This is the type of value that an effect depends on in order to produce its result.
+-  The type variable `A` in `Effect` stands for _"Ability"_. This is the type of value that an effect depends on in order to produce its result.
 
- The `E` parameter of `Effect` stands for "Error". This the type of errors that an effect might fail with.
+ - The type variable `E` parameter of `Effect` stands for _"Error"_. This the type of errors that an effect might fail with.
 
- Finally, `R` stands for "Result". This is the type of value that an `Effect` will produce if no errors occur.
+ - The type variable `R` stands for _"Result"_. This is the type of value that an `Effect` will produce if no errors occur.
+
+ We'll see shortly why the _"send"_ type of effects must be `Any`, and how `stateless` can still provide good type inference.
 
 
 
@@ -110,9 +111,11 @@ from stateless import Runtime
 
 
 runtime = Runtime().use("Hello, world!")
-runtime.run(hello_world()) # outputs: Hello, world!
+runtime.run(hello_world())  # outputs: Hello, world!
 ```
-Cool. Okay maybe not. But one thing to note is that the `A` type parameter of `Effect` and `Runtime` work together to ensure type safe dependency injection of abilities: You can't forget to provide a dependency to an effect without getting a type error.
+Cool. Okay maybe not. The `hello_world` example is obviously contrived. There's no real benefit to sending `message` to `hello_world` via `yield` over just providing it as a regular function argument. The example is included here just to give you a rough idea of how the different pieces of `stateless` fit together. 
+
+One thing to note is that the `A` type parameter of `Effect` and `Runtime` work together to ensure type safe dependency injection of abilities: You can't forget to provide an ability (or dependency if you will) to an effect without getting a type error. We'll discuss in more detail later when it makes sense to use abilities for dependency injection, and when it makes sense to use regular function arguments.
 
 Let's look at a bigger example. The main point of a purely functional effect system is to enable side-effects such as IO in a purely functional way. So let's implement some abilities for doing side-effects.
 
@@ -123,16 +126,42 @@ class Console:
     def print(self, line: str) -> None:
         print(line)
 ```
-We can use `Console` with `Effect` as an ability:
+We can use `Console` with `Effect` as an ability. Recall that the _"send"_ type of `Effect` is `Any`. In order to tell our type checker that the result of yielding the `Console` class will be a `Console` instance, we can use the `stateless.depend` function. Its signature is:
+
+```python
+from typing import Type
+
+from stateless import Depend
+
+
+def depend[A](ability: Type[A]) -> Depend[A, A]:
+    ...
+```
+
+So `depend` just yields the ability type for us, and then returns the instance that will eventually be sent from `Runtime`.
+
+Let's see that in action with the `Console` ability:
+
+```python
+from stateless import Depend, depend
+
+
+def say_hello() -> Depend[Console, None]:
+    console = yield from depend(Console)
+    console.print(f"Hello, world!")
+```
+
+You can of course also just annotate `console` if you prefer:
 
 ```python
 from stateless import Depend
 
 
 def say_hello() -> Depend[Console, None]:
-    console = yield Console
+    console: Console = yield Console
     console.print(f"Hello, world!")
 ```
+
 Let's add another ability `Files` to read rom the file system:
 
 
@@ -151,37 +180,9 @@ from stateless import Depend
 def print_file(path: str) -> Depend[Console | Files, None]:
     ...
 ```
-Note that `A` is parameterized with `Console | Files` since `print_file` depends on both `Console` and `Files` (ie it will yield both classes).
+Note that `A` is parameterized with `Console | Files` since `print_file` depends on both `Console` and `Files` (i.e it will yield both classes).
 
 Let's add a body for `print_file`:
-
-```python
-from stateless import Depend
-
-
-def print_file(path: str) -> Depend[Console | Files, None]:
-    files = yield Files
-    console = yield Console
-
-    content = files.read(path)  # type-checker error!
-    console.print(content)
-```
-That's a bit annoying. Since the "send" type of our generator can be both `Files` and `Console`, our type-checker doesn't know which type is going to sent to `print_files` from `Runtime` at which point.
-
-To fix this we need to use the `stateless.depend` function. It's defined like this:
-
-```python
-from typing import Type
-
-from stateless import Depend
-
-
-def depend[A](ability: Type[A]) -> Depend[A, A]:
-    return (yield ability)
-```
-So `depend` just yields the ability for us, and then returns the instance that will eventually be sent from `Runtime`.
-
-Let's use that to fix `print_file`:
 
 ```python
 from stateless import Depend, depend
@@ -190,11 +191,16 @@ from stateless import Depend, depend
 def print_file(path: str) -> Depend[Console | Files, None]:
     files = yield from depend(Files)
     console = yield from depend(Console)
-    
+
     content = files.read(path)
     console.print(content)
 ```
-`depend` is also a good example of how you can build complex effects using functions that return simpler effects using `yield from`:
+
+`print_file` is a good demonstration of why the _"send"_ type of `Effect` must be `Any`: Since `print_file` expects to be sent instances of `Console` _or_ `File`, it's not possible for our type-checker to know on which yield which type is going to be sent, and because of the variance of `typing.Generator`, we can't write `depend` in a way that would allow us to type `Effect` with a _"send"_ type other than `Any`.
+
+`depend` is a good example of how you can build complex effects using functions that return simpler effects using `yield from`:
+
+
 ```python
 from stateless import Depend, depend
 
