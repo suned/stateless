@@ -15,7 +15,7 @@ from stateless.effect import Effect
 from stateless.errors import MissingAbility
 
 
-A = TypeVar("A", covariant=True)
+A = TypeVar("A")
 A2 = TypeVar("A2")
 A3 = TypeVar("A3")
 R = TypeVar("R")
@@ -68,7 +68,7 @@ class Runtime(Generic[A]):
                                 else:
                                     raise e
                         case ability_type if ability_type is Parallel:
-                            ability_or_error = effect.send(self)  # type: ignore
+                            ability_or_error = effect.send(self)
                         case ability_type:
                             ability = self.get_ability(ability_type)
                             ability_or_error = effect.send(ability)

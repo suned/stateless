@@ -8,6 +8,8 @@ from typing import (
     Awaitable,
     TypeAlias,
     cast,
+    overload,
+    Any,
 )
 from collections.abc import Generator
 from functools import wraps, lru_cache, partial
@@ -18,13 +20,13 @@ from typing_extensions import Never
 
 
 R = TypeVar("R")
-A = TypeVar("A", contravariant=True)
+A = TypeVar("A")
 E = TypeVar("E", bound=Exception)
 P = ParamSpec("P")
 E2 = TypeVar("E2", bound=Exception)
 
-Effect: TypeAlias = Generator[Type[A] | E, A, R]
-Depend: TypeAlias = Generator[Type[A], A, R]
+Effect: TypeAlias = Generator[Type[A] | E, Any, R]
+Depend: TypeAlias = Generator[Type[A], Any, R]
 Success: TypeAlias = Depend[Never, R]
 Try: TypeAlias = Generator[E, Never, R]
 
@@ -60,20 +62,37 @@ def catch(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
     return wrapper
 
 
-def depend(ability: Type[A]) -> Generator[Type[A], object, A]:
+def depend(ability: Type[A]) -> Depend[A, A]:
     a = yield ability
     return cast(A, a)
 
 
+@overload
 def throws(
     *errors: Type[E2],
+) -> Callable[[Callable[P, Depend[A, R]]], Callable[P, Effect[A, E2, R]]]:
+    ...
+
+
+@overload
+def throws(  # type: ignore
+    *errors: Type[E2],
 ) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E | E2, R]]]:
+    ...
+
+
+def throws(  # type: ignore
+    *errors: Type[E2],
+) -> Callable[
+    [Callable[P, Effect[A, E, R] | Depend[A, R]]],
+    Callable[P, Effect[A, E | E2, R] | Effect[A, E2, R]],
+]:
     def decorator(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Effect[A, E | E2, R]]:
         @wraps(f)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Effect[A, E | E2, R]:
             try:
                 return (yield from f(*args, **kwargs))
-            except errors as e:
+            except errors as e:  # pyright: ignore
                 return (yield from throw(e))
 
         return wrapper

@@ -170,7 +170,7 @@ class Parallel:
 
     def run(
         self,
-        runtime: "Runtime[Parallel]",
+        runtime: "Runtime[object]",
         tasks: tuple[Task[object, Exception, object], ...],
     ) -> tuple[object, ...] | Exception:
         if self.state == "init":
@@ -342,7 +342,7 @@ def parallel(  # type: ignore
 ) -> Effect[Parallel, Exception, tuple[object, ...]]:
     runtime: "Runtime[Parallel]" = cast("Runtime[Parallel]", (yield Parallel))
     ability = runtime.get_ability(Parallel)
-    result = ability.run(runtime, tasks)
+    result = ability.run(runtime, tasks)  # type: ignore
     if isinstance(result, Exception):
         return (yield from throw(result))
     else:

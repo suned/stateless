@@ -42,7 +42,8 @@ def test_provide_multiple_sub_types() -> None:
 
 def test_missing_dependency() -> None:
     def effect() -> Depend[Super, Super]:
-        return (yield Super)
+        ability: Super = yield Super
+        return ability
 
     with raises(MissingAbility, match="Super") as info:
         Runtime().run(effect())  # type: ignore
@@ -60,7 +61,8 @@ def test_missing_dependency() -> None:
 
 def test_simple_dependency() -> None:
     def effect() -> Depend[str, str]:
-        return (yield str)
+        ability: str = yield str
+        return ability
 
     assert Runtime().use("hi!").run(effect()) == "hi!"
 

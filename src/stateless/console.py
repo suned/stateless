@@ -20,5 +20,5 @@ def print_line(content: str) -> Depend[Console, None]:
 
 
 def read_line(prompt: str = "") -> Depend[Console, str]:
-    console = yield Console
+    console: Console = yield Console
     return console.input(prompt)

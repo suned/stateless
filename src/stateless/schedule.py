@@ -7,12 +7,12 @@ import itertools
 from stateless.effect import Depend, success, Success
 
 
-A = TypeVar("A")
+A = TypeVar("A", covariant=True)
 
 
 class Schedule(Protocol[A]):
     def __iter__(self) -> Depend[A, Iterator[timedelta]]:
-        pass
+        ...
 
 
 @dataclass(frozen=True)

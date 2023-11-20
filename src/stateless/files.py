@@ -19,5 +19,5 @@ class Files:
 
 @throws(FileNotFoundError, PermissionError)
 def read_file(path: str) -> Depend[Files, str]:
-    files = yield Files
+    files: Files = yield Files
     return files.read_file(path)

@@ -35,7 +35,8 @@ def test_throw() -> None:
 
 
 def test_catch() -> None:
-    effect = catch(lambda: throw(RuntimeError("oops")))()
+    effect: Success[RuntimeError] = catch(lambda: throw(RuntimeError("oops")))()
+
     error = Runtime().run(effect)
 
     assert isinstance(error, RuntimeError)

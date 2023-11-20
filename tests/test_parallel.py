@@ -34,8 +34,9 @@ def test_unhandled_errors(runtime: Runtime[Parallel]) -> None:
         raise ValueError("error")
 
     with raises(ValueError, match="error"):
-        # todo: there is a bug in mypy's inference
-        effect = parallel(thread(f)())
+        # todo: why does this need a type annotation?
+        effect: Depend[Parallel, tuple[str]] = parallel(thread(f)())  # type: ignore
+        # todo: there is a bug in mypy's type inference here
         runtime.run(effect)
 
 
@@ -62,7 +63,8 @@ def test_cpu_effect(runtime: Runtime[Parallel]) -> None:
     def f() -> Success[str]:
         return success("done")
 
-    result = runtime.run(parallel(f()))
+    result = runtime.run(parallel(f()))  # type: ignore
+    # todo: there is a bug in mypy's type inference here
     assert result == ("done",)
 
 
@@ -71,7 +73,8 @@ def test_io_effect(runtime: Runtime[Parallel]) -> None:
     def f() -> Success[str]:
         return success("done")
 
-    result = runtime.run(parallel(f()))
+    result = runtime.run(parallel(f()))  # type: ignore
+    # todo: there is a bug in mypy's type inference here
     assert result == ("done",)
 
 
