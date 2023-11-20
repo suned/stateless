@@ -1,6 +1,6 @@
-from stateless import catch, Depend, Runtime
-from stateless.files import Files, read_file
+from stateless import Depend, Runtime, catch
 from stateless.console import Console, print_line
+from stateless.files import Files, read_file
 
 
 def example() -> Depend[Files | Console, None]:
