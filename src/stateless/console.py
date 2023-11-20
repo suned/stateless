@@ -1,7 +1,8 @@
-from typing import Type, Generator
-from typing_extensions import Never
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Generator, Type
+
+from typing_extensions import Never
 
 from stateless.effect import Depend
 

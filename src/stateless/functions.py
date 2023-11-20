@@ -1,8 +1,8 @@
-from typing import Callable, ParamSpec, TypeVar, Tuple, Generic
 from functools import wraps
+from typing import Callable, Generic, ParamSpec, Tuple, TypeVar
 
-from stateless.schedule import Schedule
 from stateless.effect import Effect, catch, throw
+from stateless.schedule import Schedule
 from stateless.time import Time, sleep
 
 A = TypeVar("A")

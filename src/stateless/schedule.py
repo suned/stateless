@@ -1,11 +1,11 @@
-from typing import TypeVar, Iterator, NoReturn as Never, Callable, Protocol
-from datetime import timedelta
-from dataclasses import dataclass
-
 import itertools
+from dataclasses import dataclass
+from datetime import timedelta
+from typing import Callable, Iterator
+from typing import NoReturn as Never
+from typing import Protocol, TypeVar
 
-from stateless.effect import Depend, success, Success
-
+from stateless.effect import Depend, Success, success
 
 A = TypeVar("A", covariant=True)
 

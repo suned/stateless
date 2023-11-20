@@ -1,23 +1,21 @@
+from collections.abc import Generator
+from dataclasses import dataclass, field
+from functools import lru_cache, partial, wraps
+from types import TracebackType
 from typing import (
-    TypeVar,
-    Callable,
-    Type,
-    ParamSpec,
-    overload,
-    Generic,
+    Any,
     Awaitable,
+    Callable,
+    Generic,
+    ParamSpec,
+    Type,
     TypeAlias,
+    TypeVar,
     cast,
     overload,
-    Any,
 )
-from collections.abc import Generator
-from functools import wraps, lru_cache, partial
-from dataclasses import dataclass, field
-from types import TracebackType
 
 from typing_extensions import Never
-
 
 R = TypeVar("R")
 A = TypeVar("A")

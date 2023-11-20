@@ -1,21 +1,22 @@
-from typing import (
-    Callable,
-    TypeVar,
-    ParamSpec,
-    Generic,
-    overload,
-    Sequence,
-    Type,
-    TYPE_CHECKING,
-    Literal,
-    cast,
-)
-from types import TracebackType, GeneratorType
 from dataclasses import dataclass
-from multiprocessing.pool import ThreadPool
+from functools import wraps
 from multiprocessing import Manager
 from multiprocessing.managers import BaseManager, PoolProxy  # type: ignore
-from functools import wraps
+from multiprocessing.pool import ThreadPool
+from types import GeneratorType, TracebackType
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Generic,
+    Literal,
+    ParamSpec,
+    Sequence,
+    Type,
+    TypeVar,
+    cast,
+    overload,
+)
+
 import cloudpickle  # type: ignore
 
 from stateless import Effect, throw

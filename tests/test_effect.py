@@ -1,23 +1,23 @@
-from typing import NoReturn as Never
-from datetime import timedelta
 from dataclasses import dataclass
+from datetime import timedelta
+from typing import NoReturn as Never
 
 from pytest import raises
 
 from stateless import (
-    catch,
+    Depend,
+    Effect,
     Runtime,
-    depend,
-    throw,
-    throws,
-    repeat,
-    success,
     Success,
     Try,
-    Depend,
+    catch,
+    depend,
     memoize,
+    repeat,
     retry,
-    Effect,
+    success,
+    throw,
+    throws,
 )
 from stateless.schedule import Recurs, Spaced
 from stateless.time import Time

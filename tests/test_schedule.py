@@ -1,9 +1,10 @@
-from typing import Iterator, NoReturn as Never
-from datetime import timedelta
 import itertools
+from datetime import timedelta
+from typing import Iterator
+from typing import NoReturn as Never
 
-from stateless import Runtime, Success, Schedule, success
-from stateless.schedule import Spaced, Recurs
+from stateless import Runtime, Schedule, Success, success
+from stateless.schedule import Recurs, Spaced
 
 
 def test_spaced() -> None:

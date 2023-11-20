@@ -1,12 +1,12 @@
 import pickle
-from typing import Iterator
 from multiprocessing import Manager
 from multiprocessing.pool import ThreadPool
+from typing import Iterator
 
-from pytest import raises, fixture
+from pytest import fixture, raises
 
-from stateless import throws, Success, catch, Runtime, Effect, success, Depend
-from stateless.parallel import process, thread, parallel, Parallel
+from stateless import Depend, Effect, Runtime, Success, catch, success, throws
+from stateless.parallel import Parallel, parallel, process, thread
 
 
 @fixture(scope="module", name="runtime")

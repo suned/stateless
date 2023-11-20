@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 
+from pytest import raises
 from typing_extensions import Never
 
-from stateless import depend, Runtime, Depend, Effect, Try, Success
+from stateless import Depend, Effect, Runtime, Success, Try, depend
 from stateless.runtime import MissingAbility
-
-from pytest import raises
 
 
 @dataclass(frozen=True)

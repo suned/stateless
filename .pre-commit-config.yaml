@@ -11,4 +11,9 @@
       language: system
       types: [python]
       entry: pyright
+    - id: isort
+      name: isort
+      language: system
+      types: [python]
+      entry: isort
   

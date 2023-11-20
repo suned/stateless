@@ -1,19 +1,10 @@
-from typing import (
-    Generic,
-    TypeVar,
-    Type,
-    Tuple,
-    cast,
-    overload,
-    Literal,
-)
 from dataclasses import dataclass
 from functools import cache
-from stateless.parallel import Parallel
+from typing import Generic, Literal, Tuple, Type, TypeVar, cast, overload
 
 from stateless.effect import Effect
 from stateless.errors import MissingAbility
-
+from stateless.parallel import Parallel
 
 A = TypeVar("A")
 A2 = TypeVar("A2")

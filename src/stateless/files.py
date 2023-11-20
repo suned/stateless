@@ -1,10 +1,10 @@
-from typing import Protocol
-from typing_extensions import Never
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Protocol
 
+from typing_extensions import Never
 
-from stateless.effect import Effect, throws, Depend
+from stateless.effect import Depend, Effect, throws
 
 
 class Files:
