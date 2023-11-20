@@ -36,6 +36,19 @@ disallow_any_generics = true
 [tool.isort]
 profile = "black"
 
+[tool.pylint]
+disable = [
+    "C0103",
+    "C0114",
+    "C0115",
+    "C0116",
+    "C0105",
+    "R0903",
+    "R1705",
+    "R1711",
+    "W0511",
+]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

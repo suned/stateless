@@ -1,3 +1,5 @@
+# pylint: disable=W0212
+
 import pickle
 from multiprocessing import Manager
 from multiprocessing.pool import ThreadPool

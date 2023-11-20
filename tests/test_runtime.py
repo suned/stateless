@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pytest import raises
 from typing_extensions import Never
 
-from stateless import Depend, Effect, Runtime, Success, Try, depend
+from stateless import Depend, Effect, Runtime, Try, depend
 from stateless.runtime import MissingAbility
 
 
@@ -93,7 +93,7 @@ def test_return_errors_on_duplicate_error_type() -> None:
     def catches() -> Try[ValueError, None]:
         try:
             yield from fails()
-        except ValueError as e:
+        except ValueError:
             pass
         raise ValueError("oops again")
 

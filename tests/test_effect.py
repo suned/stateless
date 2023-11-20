@@ -1,11 +1,9 @@
-from dataclasses import dataclass
 from datetime import timedelta
 from typing import NoReturn as Never
 
 from pytest import raises
 
 from stateless import (
-    Depend,
     Effect,
     Runtime,
     Success,

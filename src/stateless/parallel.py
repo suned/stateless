@@ -1,9 +1,11 @@
+# pylint: disable=C2801
+
 from dataclasses import dataclass
 from functools import wraps
 from multiprocessing import Manager
 from multiprocessing.managers import BaseManager, PoolProxy  # type: ignore
 from multiprocessing.pool import ThreadPool
-from types import GeneratorType, TracebackType
+from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -19,7 +21,7 @@ from typing import (
 
 import cloudpickle  # type: ignore
 
-from stateless import Effect, throw
+from stateless.effect import Effect, throw
 
 if TYPE_CHECKING:
     from stateless.runtime import Runtime
@@ -176,7 +178,7 @@ class Parallel:
     ) -> tuple[object, ...] | Exception:
         if self.state == "init":
             raise RuntimeError("Parallel must be used as a context manager")
-        elif self.state == "exited":
+        if self.state == "exited":
             raise RuntimeError("Parallel context manager has already exited")
         thread_tasks_and_indices = [
             (i, task) for i, task in enumerate(tasks) if task.use_threads

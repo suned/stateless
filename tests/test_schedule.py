@@ -1,9 +1,8 @@
 import itertools
 from datetime import timedelta
 from typing import Iterator
-from typing import NoReturn as Never
 
-from stateless import Runtime, Schedule, Success, success
+from stateless import Runtime, Success
 from stateless.schedule import Recurs, Spaced
 
 

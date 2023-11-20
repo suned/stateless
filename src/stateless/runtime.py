@@ -56,8 +56,7 @@ class Runtime(Generic[A]):
                             except type(error) as e:
                                 if return_errors and e is error:
                                     return cast(E, e)
-                                else:
-                                    raise e
+                                raise e
                         case ability_type if ability_type is Parallel:
                             ability_or_error = effect.send(self)
                         case ability_type:

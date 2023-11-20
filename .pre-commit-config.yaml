@@ -29,3 +29,8 @@
       language: system
       types: [python]
       entry: isort
+    - id: pylint
+      name: pylint
+      language: system
+      types: [python]
+      entry: pylint

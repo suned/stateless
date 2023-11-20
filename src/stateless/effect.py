@@ -2,18 +2,7 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps
 from types import TracebackType
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Generic,
-    ParamSpec,
-    Type,
-    TypeAlias,
-    TypeVar,
-    cast,
-    overload,
-)
+from typing import Any, Callable, ParamSpec, Type, TypeAlias, TypeVar, cast, overload
 
 from typing_extensions import Never
 
@@ -112,7 +101,7 @@ class Memoize(Effect[A, E, R]):
             object.__setattr__(self, "_memoized_result", e.value)
             raise e
 
-    def throw(
+    def throw(  # pylint: disable=W0221
         self,
         exc_type: Type[BaseException] | BaseException,
         error: BaseException | object | None = None,

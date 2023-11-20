@@ -1,19 +1,13 @@
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Protocol
-
-from typing_extensions import Never
-
-from stateless.effect import Depend, Effect, throws
+from stateless.effect import Depend, throws
 
 
 class Files:
     def read_file(self, path: str) -> str:
-        with open(path) as f:
+        with open(path) as f:  # pylint: disable=unspecified-encoding
             return f.read()
 
     def write_file(self, path: str, content: str) -> None:
-        with open(path, "w") as f:
+        with open(path, "w") as f:  # pylint: disable=unspecified-encoding
             f.write(content)
 
 
