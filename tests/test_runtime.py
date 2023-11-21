@@ -55,7 +55,7 @@ def test_missing_dependency() -> None:
     # second is effect.throw in Runtime.run)
     frame = info.traceback[2]
     assert str(frame.path) == __file__
-    assert frame.lineno + 1 == 45
+    assert frame.lineno == effect.__code__.co_firstlineno
 
 
 def test_simple_dependency() -> None:
