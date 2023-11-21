@@ -17,6 +17,10 @@
       args: [ --fix ]
     # Run the formatter.
     - id: ruff-format
+  - repo: https://github.com/jsh9/pydoclint
+    rev: 0.3.4
+    hooks:
+    - id: pydoclint
   - repo: local
     hooks:
     - id: mypy

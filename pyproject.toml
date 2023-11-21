@@ -33,7 +33,18 @@ strict_equality = true
 disallow_any_generics = true
 
 [tool.ruff]
-select = ["I", "F", "N", "RUF"]
+select = ["I", "F", "N", "RUF", "D"]
+ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D211",
+    "D213",
+]
 
 [build-system]
 requires = ["poetry-core"]
