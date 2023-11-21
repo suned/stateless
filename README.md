@@ -39,28 +39,28 @@ class Console:
 
 
 # Effects are generators that yield "Abilities" that can be sent to the
-# function at runtime. Abilities could be anything, but will often be things that
+# generator when an effect is executed. Abilities could be anything, but will often be things that
 # handle side-effects. Here it's a class that can print to the console.
 # In other effects systems, abilities are called "effect handlers".
 def print_(value: Any) -> Effect[Console, Never, None]:
-    console = yield from depend(Console)
+    console = yield from depend(Console)  # depend returns abilities
     console.print(value)
 
 
-# Effects can yield exceptions. `stateless.throws` will catch exceptions
+# Effects can yield exceptions. 'stateless.throws' will catch exceptions
 # for you and yield them to other functions so you can handle them with
 # type safety. The type of the decorated function in this
-# example is: Effect[Files, OSError, str]
+# example is: ´Effect[Files, OSError, str]'
 @throws(OSError)
 def read_file(path: str) -> Effect[Files, Never, str]:
-    files = yield from depend(Files)  # depend returns abilities
+    files = yield from depend(Files)
     return files.read(path)
 
 
 
 # Simple effects can be combined into complex ones by
 # depending on multiple abilities.
-def print_file(path: str) -> Effect[Files | Console, OSError, None]:
+def print_file(path: str) -> Effect[Files | Console, Never, None]:
     result = yield from catch(read_file)(path)  # catch will return exceptions yielded by other functions
     match result:
         case OSError() as error:
@@ -592,7 +592,7 @@ with (
     Manager() as manager,
     manager.Pool() as pool,
     ThreadPool() as thread_pool,
-    Parallel(pool, thread_pool) as parallel
+    Parallel(thread_pool, pool) as parallel
 ):
     ...
 ```

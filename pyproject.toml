@@ -18,8 +18,7 @@ ipython = "^8.17.2"
 pytest = "^7.4.3"
 pyright = "^1.1.336"
 pre-commit = "^3.5.0"
-pylint = "^3.0.2"
-isort = "^5.12.0"
+ruff = "^0.1.6"
 
 
 [tool.mypy]
@@ -33,21 +32,8 @@ warn_return_any = true
 strict_equality = true
 disallow_any_generics = true
 
-[tool.isort]
-profile = "black"
-
-[tool.pylint]
-disable = [
-    "C0103",
-    "C0114",
-    "C0115",
-    "C0116",
-    "C0105",
-    "R0903",
-    "R1705",
-    "R1711",
-    "W0511",
-]
+[tool.ruff]
+select = ["I", "F", "N", "RUF"]
 
 [build-system]
 requires = ["poetry-core"]

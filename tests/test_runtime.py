@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 
 from pytest import raises
-from typing_extensions import Never
-
 from stateless import Depend, Effect, Runtime, Try, depend
-from stateless.runtime import MissingAbility
+from stateless.errors import MissingAbilityError
+from typing_extensions import Never
 
 
 @dataclass(frozen=True)
@@ -44,7 +43,7 @@ def test_missing_dependency() -> None:
         ability: Super = yield Super
         return ability
 
-    with raises(MissingAbility, match="Super") as info:
+    with raises(MissingAbilityError, match="Super") as info:
         Runtime().run(effect())  # type: ignore
 
     print(info.getrepr())

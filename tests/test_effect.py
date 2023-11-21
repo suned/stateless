@@ -2,7 +2,6 @@ from datetime import timedelta
 from typing import NoReturn as Never
 
 from pytest import raises
-
 from stateless import (
     Effect,
     Runtime,

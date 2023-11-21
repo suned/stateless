@@ -1,12 +1,9 @@
-# pylint: disable=W0212
-
 import pickle
 from multiprocessing import Manager
 from multiprocessing.pool import ThreadPool
 from typing import Iterator
 
 from pytest import fixture, raises
-
 from stateless import Depend, Effect, Runtime, Success, catch, success, throws
 from stateless.parallel import Parallel, parallel, process, thread
 

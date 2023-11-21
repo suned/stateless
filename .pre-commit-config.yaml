@@ -8,10 +8,15 @@
       - id: check-yaml
       - id: check-toml
       - id: debug-statements
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 23.11.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.1.6
     hooks:
-      - id: black
+    # Run the linter.
+    - id: ruff
+      args: [ --fix ]
+    # Run the formatter.
+    - id: ruff-format
   - repo: local
     hooks:
     - id: mypy
@@ -24,13 +29,3 @@
       language: system
       types: [python]
       entry: pyright
-    - id: isort
-      name: isort
-      language: system
-      types: [python]
-      entry: isort
-    - id: pylint
-      name: pylint
-      language: system
-      types: [python]
-      entry: pylint

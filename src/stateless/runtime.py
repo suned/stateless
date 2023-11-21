@@ -3,7 +3,7 @@ from functools import cache
 from typing import Generic, Literal, Tuple, Type, TypeVar, cast, overload
 
 from stateless.effect import Effect
-from stateless.errors import MissingAbility
+from stateless.errors import MissingAbilityError
 from stateless.parallel import Parallel
 
 A = TypeVar("A")
@@ -18,7 +18,7 @@ def _get_ability(ability_type: Type[A], abilities: Tuple[A, ...]) -> A:
     for ability in abilities:
         if isinstance(ability, ability_type):
             return ability
-    raise MissingAbility(ability_type)
+    raise MissingAbilityError(ability_type)
 
 
 @dataclass(frozen=True)
@@ -26,7 +26,7 @@ class Runtime(Generic[A]):
     abilities: tuple[A, ...] = ()
 
     def use(self, ability: A2) -> "Runtime[A | A2]":
-        return Runtime((ability,) + self.abilities)
+        return Runtime((ability, *self.abilities))
 
     def get_ability(self, ability_type: Type[A]) -> A:
         return _get_ability(ability_type, self.abilities)  # type: ignore
@@ -62,7 +62,7 @@ class Runtime(Generic[A]):
                         case ability_type:
                             ability = self.get_ability(ability_type)
                             ability_or_error = effect.send(ability)
-                except MissingAbility as error:
+                except MissingAbilityError as error:
                     ability_or_error = effect.throw(error)
         except StopIteration as e:
             return cast(R, e.value)

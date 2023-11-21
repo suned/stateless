@@ -1,5 +1,5 @@
 from typing import Type
 
 
-class MissingAbility(Exception):
+class MissingAbilityError(Exception):
     ability: Type[object]

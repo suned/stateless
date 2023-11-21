@@ -18,7 +18,7 @@ Success: TypeAlias = Depend[Never, R]
 Try: TypeAlias = Generator[E, Never, R]
 
 
-class NoResult(Exception):
+class NoResultError(Exception):
     pass
 
 
@@ -101,7 +101,7 @@ class Memoize(Effect[A, E, R]):
             object.__setattr__(self, "_memoized_result", e.value)
             raise e
 
-    def throw(  # pylint: disable=W0221
+    def throw(
         self,
         exc_type: Type[BaseException] | BaseException,
         error: BaseException | object | None = None,

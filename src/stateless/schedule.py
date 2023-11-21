@@ -1,9 +1,8 @@
 import itertools
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Iterator
+from typing import Iterator, Protocol, TypeVar
 from typing import NoReturn as Never
-from typing import Protocol, TypeVar
 
 from stateless.effect import Depend, Success, success
 

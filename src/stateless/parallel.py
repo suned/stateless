@@ -1,5 +1,3 @@
-# pylint: disable=C2801
-
 from dataclasses import dataclass
 from functools import wraps
 from multiprocessing import Manager
