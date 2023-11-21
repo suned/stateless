@@ -13,6 +13,69 @@ Functional effect systems like `stateless` aim to make programming with side-eff
 
 As a result, "business logic" code never performs side-effects, which makes it easier to reason about, test and re-use.
 
+# Quickstart
+
+```python
+from typing import Any, Never
+from stateless import Effect, depend, throws, catch, Runtime
+
+
+# stateless.Effect is just an alias for:
+#
+# from typing import Generator, Any
+#
+# type Effect[A, E: Exception, R] = Generator[Type[A] | E, Any, R]
+
+
+class Files:
+    def read_file(path: str) -> str:
+        with open(path) as f:
+            return f.read()
+
+
+class Console:
+    def print(value: Any) -> None:
+        print(value)
+
+
+# Effects are generators that yield "Abilities" that can be sent to the
+# function at runtime. Abilities could be anything, but will often be things that
+# handle side-effects. Here it's a class that can print to the console.
+# In other effects systems, abilities are called "effect handlers".
+def print_(value: Any) -> Effect[Console, Never, None]:
+    console = yield from depend(Console)
+    console.print(value)
+
+
+# Effects can yield exceptions. `stateless.throws` will catch exceptions
+# for you and yield them to other functions so you can handle them with
+# type safety. The type of the decorated function in this
+# example is: Effect[Files, OSError, str]
+@throws(OSError)
+def read_file(path: str) -> Effect[Files, Never, str]:
+    files = yield from depend(Files)  # depend returns abilities
+    return files.read(path)
+
+
+
+# Simple effects can be combined into complex ones by
+# depending on multiple abilities.
+def print_file(path: str) -> Effect[Files | Console, OSError, None]:
+    result = yield from catch(read_file)(path)  # catch will return exceptions yielded by other functions
+    match result:
+        case OSError() as error:
+            yield from print_(f"error: {error}")
+        case _ as content:
+            yield from print_(content)
+
+
+# Abilities are provided to effects via stateless.Runtime.run
+runtime = Runtime().use(Console()).use(Files())
+runtime.run(print_file('foo.txt'))
+
+
+```
+
 # Guide
 
 
@@ -85,7 +148,7 @@ from stateless import Effect
 class Runtime[A]:
     def use[A2](self, ability: A2) -> Runtime[A | A2]:
         ...
-    
+
     def run[E: Exception, R](self, effect: Effect[A, E, R]) -> R:
         ...
 ```
@@ -113,7 +176,7 @@ from stateless import Runtime
 runtime = Runtime().use("Hello, world!")
 runtime.run(hello_world())  # outputs: Hello, world!
 ```
-Cool. Okay maybe not. The `hello_world` example is obviously contrived. There's no real benefit to sending `message` to `hello_world` via `yield` over just providing it as a regular function argument. The example is included here just to give you a rough idea of how the different pieces of `stateless` fit together. 
+Cool. Okay maybe not. The `hello_world` example is obviously contrived. There's no real benefit to sending `message` to `hello_world` via `yield` over just providing it as a regular function argument. The example is included here just to give you a rough idea of how the different pieces of `stateless` fit together.
 
 One thing to note is that the `A` type parameter of `Effect` and `Runtime` work together to ensure type safe dependency injection of abilities: You can't forget to provide an ability (or dependency if you will) to an effect without getting a type error. We'll discuss in more detail later when it makes sense to use abilities for dependency injection, and when it makes sense to use regular function arguments.
 
@@ -213,11 +276,11 @@ def get_str() -> Depend[str, str]:
 def get_int() -> Depend[str | int, tuple[str, int]]:
     s = yield from get_str()
     i = yield from depend(int)
-    
+
     return (s, i)
 ```
 
-It will often make sense to use an `abc.ABC` as your ability type to enforce programming towards the interface and not the implementation. If you use `mypy` however, note that [using abstract classes where `typing.Type` is expected is a type-error](https://github.com/python/mypy/issues/4717), which will cause problems if you pass an abstract type to `depend`. We recommend disabling this check, which will also likely be the default for `mypy` in the future. 
+It will often make sense to use an `abc.ABC` as your ability type to enforce programming towards the interface and not the implementation. If you use `mypy` however, note that [using abstract classes where `typing.Type` is expected is a type-error](https://github.com/python/mypy/issues/4717), which will cause problems if you pass an abstract type to `depend`. We recommend disabling this check, which will also likely be the default for `mypy` in the future.
 
 you can of course run `print_file` with `Runtime`:
 
@@ -244,7 +307,7 @@ class MockConsole(Console):
 class MockFiles(Files):
     def __init__(self, content: str) -> None:
         self.content = content
-    
+
     def read(self, path: str) -> str:
         return self.content
 
@@ -354,7 +417,7 @@ from stateless import Effect, Depend
 
 def catch[**P, A, E: Exception, R](
     f: Callable[P, [Effect[A, E, R]]]
-) -> Callable[P, Depend[A, E | R]]: 
+) -> Callable[P, Depend[A, E | R]]:
     ...
 ```
 
@@ -511,11 +574,11 @@ from stateless import Success, thread
 
 
 def sing_more() -> Success[str]:
-    # This is rather pointless, 
-    # but helps you out if you for some 
+    # This is rather pointless,
+    # but helps you out if you for some
     # reason have used @thread instead of thread(...)
     note = yield from thread(sing)()
-    return note * 2  
+    return note * 2
 ```
 If you need more control over the resources managed by `stateless.parallel.Parallel`, you can pass them as arguments:
 ```python
@@ -528,9 +591,9 @@ from stateless.parallel import Parallel
 with (
     Manager() as manager,
     manager.Pool() as pool,
-    ThreadPool() as thread_pool, 
+    ThreadPool() as thread_pool,
     Parallel(pool, thread_pool) as parallel
-):    
+):
     ...
 ```
 The process pool used to execute `stateless.parallel.Task` instances needs to be run with a manager because it needs to be sent to the process executing the task in case it needs to run more
@@ -550,11 +613,11 @@ class MockParallel(Parallel):
     def __init__(self):
         pass
 
-    def run_cpu_tasks(self, 
-                 runtime: Runtime[object], 
+    def run_cpu_tasks(self,
+                 runtime: Runtime[object],
                  tasks: Sequence[Task[object, Exception, object]]) -> Tuple[object, ...]:
         return tuple(runtime.run(iter(task)) for task in tasks)
-    
+
     def run_thread_tasks(self
                     runtime: Runtime[object],
                     effects: Sequence[Effect[object, Exception, object]]) -> Tuple[object, ...]:
@@ -695,7 +758,7 @@ However, many programmers find monads awkward. Programming with callback functio
 
 Moreover, monads famously do not compose, meaning that when writing code that needs to juggle multiple types of side-effects (like errors and IO), it's up to the programmer to pack and unpack results of various types of effects (or use advanced features like [monad transformers](https://en.wikibooks.org/wiki/Haskell/Monad_transformers) which come with their own set of problems).
 
-Additionally, in languages with dynamic binding such as Python, calling functions is relatively expensive, which means that using callbacks as the principal method for resuming computation comes with a fair amount of performance overhead. 
+Additionally, in languages with dynamic binding such as Python, calling functions is relatively expensive, which means that using callbacks as the principal method for resuming computation comes with a fair amount of performance overhead.
 
 Finally, interpreting monads is often a recursive procedure, meaning that it's necessary to worry about stack safety in languages without tail call optimisation such as Python. This is usually solved using [trampolines](https://en.wikipedia.org/wiki/Trampoline_(computing)) which further adds to the performance overhead.
 
@@ -725,5 +788,3 @@ Using coroutines for algebraic effects solves many of the challenges with monadi
 - [Abilities in the Unison language](https://www.unison-lang.org/)
 
 - [Frank language](https://github.com/frank-lang/frank)
-
-
