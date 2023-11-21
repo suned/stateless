@@ -25,6 +25,8 @@ def _get_ability(ability_type: Type[A], abilities: Tuple[A, ...]) -> A:
 
 @dataclass(frozen=True)
 class Runtime(Generic[A]):
+    """A runtime for executing effects."""
+
     abilities: tuple[A, ...] = ()
 
     def use(self, ability: A2) -> "Runtime[A | A2]":

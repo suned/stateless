@@ -8,6 +8,8 @@ from stateless.effect import Depend
 
 @dataclass(frozen=True)
 class Time:
+    """The Time ability."""
+
     def sleep(self, seconds: float) -> None:
         time.sleep(seconds)
 

@@ -21,7 +21,11 @@ Try: TypeAlias = Generator[E, Never, R]
 
 
 class NoResultError(Exception):
-    pass
+    """Raised when an effect has no result.
+
+    If this error is raised to user code
+    it should be considered a bug in stateless.
+    """
 
 
 def success(result: R) -> Success[R]:
@@ -91,6 +95,8 @@ def throws(  # type: ignore
 
 @dataclass(frozen=True)
 class Memoize(Effect[A, E, R]):
+    """Effect that memoizes the result of an effect."""
+
     effect: Effect[A, E, R]
     _memoized_result: R | None = field(init=False, default=None)
 

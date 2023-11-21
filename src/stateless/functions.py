@@ -45,6 +45,8 @@ def repeat(
 
 
 class RetryError(Exception, Generic[E]):
+    """An error that contains all the errors from a retry."""
+
     errors: tuple[E, ...]
 
 

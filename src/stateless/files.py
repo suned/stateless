@@ -4,6 +4,8 @@ from stateless.effect import Depend, throws
 
 
 class Files:
+    """The Files ability."""
+
     def read_file(self, path: str) -> str:
         with open(path) as f:
             return f.read()

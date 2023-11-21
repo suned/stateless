@@ -12,12 +12,16 @@ A = TypeVar("A", covariant=True)
 
 
 class Schedule(Protocol[A]):
+    """An iterator of timedeltas depending on stateless abilities."""
+
     def __iter__(self) -> Depend[A, Iterator[timedelta]]:
         ...
 
 
 @dataclass(frozen=True)
 class Spaced(Schedule[Never]):
+    """A schedule that yields a timedelta at a fixed interval forever."""
+
     interval: timedelta
 
     def __iter__(self) -> Success[Iterator[timedelta]]:
@@ -26,6 +30,8 @@ class Spaced(Schedule[Never]):
 
 @dataclass(frozen=True)
 class Recurs(Schedule[A]):
+    """A schedule that yields timedeltas from the schedule given as arguments fixed number of times."""
+
     n: int
     schedule: Schedule[A]
 

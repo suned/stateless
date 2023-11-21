@@ -34,6 +34,13 @@ R = TypeVar("R")
 
 @dataclass(frozen=True)
 class Task(Generic[A, E, R]):
+    """A task that can be run in parallel.
+
+    Captures arguments to functions that return effects
+    in order that they can be run in parallel, remove concerns
+    about serialization and thread-safety of effects.
+    """
+
     f: Callable[..., Effect[A, E, R]]
     args: tuple[object, ...]
     kwargs: dict[str, object]
@@ -56,6 +63,11 @@ def _run_task(payload: bytes) -> bytes:
 
 @dataclass(frozen=True, init=False)
 class Parallel:
+    """The Parallel ability.
+
+    Enables running tasks in parallel using threads and processes.
+    """
+
     _thread_pool: ThreadPool | None
     _manager: BaseManager | None
     _pool: PoolProxy | None
