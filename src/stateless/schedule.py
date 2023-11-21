@@ -1,3 +1,5 @@
+"""Contains the Schedule type and combinators."""
+
 import itertools
 from dataclasses import dataclass
 from datetime import timedelta

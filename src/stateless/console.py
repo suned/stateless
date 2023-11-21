@@ -1,3 +1,5 @@
+"""Contains the Console ability and ability helpers."""
+
 from stateless.effect import Depend
 
 

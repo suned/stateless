@@ -1,3 +1,5 @@
+"""Contains the Time ability and ability helpers."""
+
 import time
 from dataclasses import dataclass
 

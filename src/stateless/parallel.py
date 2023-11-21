@@ -1,3 +1,5 @@
+"""Contains the Parallel ability and ability helpers."""
+
 from dataclasses import dataclass
 from functools import wraps
 from multiprocessing import Manager

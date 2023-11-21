@@ -1,3 +1,5 @@
+"""Contains the Effect type and core functions for working with effects."""
+
 from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps

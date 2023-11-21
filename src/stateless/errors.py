@@ -1,3 +1,5 @@
+"""Custom errors for the stateless package."""
+
 from typing import Type
 
 

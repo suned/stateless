@@ -1,3 +1,5 @@
+"""Runtime for executing effects."""
+
 from dataclasses import dataclass
 from functools import cache
 from typing import Generic, Literal, Tuple, Type, TypeVar, cast, overload

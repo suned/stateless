@@ -1,3 +1,5 @@
+"""Functions for working with effects."""
+
 from functools import wraps
 from typing import Callable, Generic, ParamSpec, Tuple, TypeVar
 
