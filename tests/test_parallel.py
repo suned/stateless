@@ -60,8 +60,8 @@ def test_cpu_effect(runtime: Runtime[Parallel]) -> None:
     def f() -> Success[str]:
         return success("done")
 
-    result = runtime.run(parallel(f()))  # type: ignore
-    # todo: there is a bug in mypy's type inference here
+    effect = parallel(f())
+    result = runtime.run(effect)
     assert result == ("done",)
 
 
@@ -70,8 +70,8 @@ def test_io_effect(runtime: Runtime[Parallel]) -> None:
     def f() -> Success[str]:
         return success("done")
 
-    result = runtime.run(parallel(f()))  # type: ignore
-    # todo: there is a bug in mypy's type inference here
+    effect = parallel(f())
+    result = runtime.run(effect)
     assert result == ("done",)
 
 
