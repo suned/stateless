@@ -33,9 +33,7 @@ def test_unhandled_errors(runtime: Runtime[Parallel]) -> None:
         raise ValueError("error")
 
     with raises(ValueError, match="error"):
-        # todo: why does this need a type annotation?
-        effect: Depend[Parallel, tuple[str]] = parallel(thread(f)())  # type: ignore
-        # todo: there is a bug in mypy's type inference here
+        effect = parallel(thread(f)())
         runtime.run(effect)
 
 

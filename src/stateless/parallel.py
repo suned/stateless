@@ -20,8 +20,9 @@ from typing import (
 )
 
 import cloudpickle  # type: ignore
+from typing_extensions import Never
 
-from stateless.effect import Effect, throw
+from stateless.effect import Depend, Effect, Success, throw
 
 if TYPE_CHECKING:
     from stateless.runtime import Runtime
@@ -60,6 +61,24 @@ def _run_task(payload: bytes) -> bytes:
     with ability:
         result = runtime.run(iter(task), return_errors=True)  # type: ignore
         return cloudpickle.dumps(result)  # type: ignore
+
+
+class SuccessTask(Task[Never, Never, R]):
+    """A task that can be run in parallel.
+
+    Captures arguments to functions that return effects
+    in order that they can be run in parallel, remove concerns
+    about serialization and thread-safety of effects.
+    """
+
+
+class DependTask(Task[A, Never, R]):
+    """A task that can be run in parallel.
+
+    Captures arguments to functions that return effects
+    in order that they can be run in parallel, remove concerns
+    about serialization and thread-safety of effects.
+    """
 
 
 @dataclass(frozen=True, init=False)
@@ -320,19 +339,19 @@ P = ParamSpec("P")
 
 # I'm not sure why this is overload is necessary, but mypy complains without it
 @overload
-def process(f: Callable[P, Effect[A1, E, R]]) -> Callable[P, Task[A1, E, R]]:
+def process(  # type: ignore
+    f: Callable[P, Success[R]]
+) -> Callable[P, SuccessTask[R]]:
     ...
 
 
 @overload
-def process(f: Callable[P, Effect[A1 | A2, E, R]]) -> Callable[P, Task[A1 | A2, E, R]]:
+def process(f: Callable[P, Depend[A, R]]) -> Callable[P, DependTask[A, R]]:
     ...
 
 
 @overload
-def process(
-    f: Callable[P, Effect[A1 | A2 | A3, E, R]]
-) -> Callable[P, Task[A1 | A2 | A3, E, R]]:
+def process(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
     ...
 
 
@@ -364,19 +383,19 @@ def process(  # type: ignore
 
 
 @overload
-def thread(f: Callable[P, Effect[A1, E, R]]) -> Callable[P, Task[A1, E, R]]:
+def thread(  # type: ignore
+    f: Callable[P, Success[R]]
+) -> Callable[P, SuccessTask[R]]:
     ...
 
 
 @overload
-def thread(f: Callable[P, Effect[A1 | A2, E, R]]) -> Callable[P, Task[A1 | A2, E, R]]:
+def thread(f: Callable[P, Depend[A, R]]) -> Callable[P, DependTask[A, R]]:
     ...
 
 
 @overload
-def thread(
-    f: Callable[P, Effect[A1 | A2 | A3, E, R]]
-) -> Callable[P, Task[A1 | A2 | A3, E, R]]:
+def thread(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
     ...
 
 
@@ -407,8 +426,8 @@ def thread(  # type: ignore
     return wrapper
 
 
-@overload  # type: ignore
-def parallel() -> Effect[Parallel, Exception, tuple[()]]:
+@overload
+def parallel() -> Effect[Parallel, Never, tuple[()]]:
     ...
 
 
