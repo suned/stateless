@@ -316,6 +316,18 @@ def process(
 def process(  # type: ignore
     f: Callable[P, Effect[object, Exception, object]]
 ) -> Callable[P, Task[object, Exception, object]]:
+    """
+    Create a task that can be run in parallel using processes.
+
+    Args:
+    ----
+        f: The function to capture as a task.
+
+    Returns:
+    -------
+        `f` decorated to return a task.
+    """
+
     @wraps(f)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Task[object, Exception, object]:
         return Task(
@@ -348,6 +360,18 @@ def thread(
 def thread(  # type: ignore
     f: Callable[P, Effect[object, Exception, object]]
 ) -> Callable[P, Task[object, Exception, object]]:
+    """
+    Create a task that can be run in parallel using threads.
+
+    Args:
+    ----
+        f: The function to capture as a task.
+
+    Returns:
+    -------
+        `f` decorated to return a task.
+    """
+
     @wraps(f)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Task[object, Exception, object]:
         return Task(
@@ -397,6 +421,19 @@ def parallel(
 def parallel(  # type: ignore
     *tasks: Task[object, Exception, object],
 ) -> Effect[Parallel, Exception, tuple[object, ...]]:
+    """
+    Run tasks in parallel.
+
+    If any of the tasks yield an exception, the exception is yielded.
+
+    Args:
+    ----
+        tasks: The tasks to run.
+
+    Returns:
+    -------
+        The results of the tasks.
+    """
     runtime: "Runtime[Parallel]" = cast("Runtime[Parallel]", (yield Parallel))
     ability = runtime.get_ability(Parallel)
     result = ability.run(runtime, tasks)  # type: ignore

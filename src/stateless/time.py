@@ -22,5 +22,16 @@ class Time:
 
 
 def sleep(seconds: float) -> Depend[Time, None]:
+    """
+    Sleep for a number of seconds.
+
+    Args:
+    ----
+        seconds: The number of seconds to sleep for.
+
+    Returns:
+    -------
+        An effect that sleeps for a number of seconds.
+    """
     time_ = yield Time
     time_.sleep(seconds)
