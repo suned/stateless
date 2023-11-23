@@ -1,3 +1,5 @@
+"""Statically typed, purely functional effects."""
+
 # ruff: noqa: F401
 
 from stateless.effect import (

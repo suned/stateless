@@ -47,6 +47,7 @@ class Task(Generic[A, E, R]):
     use_threads: bool
 
     def __iter__(self) -> Effect[A, E, R]:
+        """Iterate the effect wrapped by this task."""
         return self.f(*self.args, **self.kwargs)
 
 
@@ -66,6 +67,11 @@ class Parallel:
     """The Parallel ability.
 
     Enables running tasks in parallel using threads and processes.
+
+    Args:
+    ----
+            thread_pool: The thread pool to use to run tasks in parallel.
+            pool: The multiprocessing pool to use to run tasks in parallel. Must be a proxy pool.
     """
 
     _thread_pool: ThreadPool | None
@@ -120,6 +126,13 @@ class Parallel:
         tuple[int, Callable[..., tuple[object, ...]], tuple[object, ...]] | None,
         PoolProxy,
     ]:
+        """
+        Get the state of the Parallel ability for pickling.
+
+        Returns
+        -------
+            The state of the Parallel ability.
+        """
         if self._thread_pool is None:
             return None, self.pool
         else:
@@ -138,6 +151,13 @@ class Parallel:
             tuple[int, Callable[..., tuple[object, ...]], tuple[object, ...]], PoolProxy
         ],
     ) -> None:
+        """
+        Set the state of the Parallel ability from pickling.
+
+        Args:
+        ----
+            state: The state of the Parallel ability obtained using __getstate__.
+        """
         thread_pool_args, pool = state
         if thread_pool_args is None:
             object.__setattr__(self, "_thread_pool", None)
@@ -149,6 +169,7 @@ class Parallel:
         object.__setattr__(self, "state", "entered")
 
     def __enter__(self) -> "Parallel":
+        """Enter the Parallel ability context."""
         object.__setattr__(self, "state", "entered")
         return self
 
@@ -158,6 +179,8 @@ class Parallel:
         exc_value: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None | bool:
+        """Exit the Parallel ability context."""
+
         if self._manager is not None:
             if self._owns_process_pool:
                 self._pool.__exit__(exc_type, exc_value, exc_tb)  # type: ignore

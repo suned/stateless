@@ -15,6 +15,7 @@ class Schedule(Protocol[A]):
     """An iterator of timedeltas depending on stateless abilities."""
 
     def __iter__(self) -> Depend[A, Iterator[timedelta]]:
+        """Iterate over the schedule."""
         ...
 
 
@@ -25,6 +26,7 @@ class Spaced(Schedule[Never]):
     interval: timedelta
 
     def __iter__(self) -> Success[Iterator[timedelta]]:
+        """Iterate over the schedule."""
         return success(itertools.repeat(self.interval))
 
 
@@ -36,5 +38,6 @@ class Recurs(Schedule[A]):
     schedule: Schedule[A]
 
     def __iter__(self) -> Depend[A, Iterator[timedelta]]:
+        """Iterate over the schedule."""
         deltas = yield from self.schedule
         return itertools.islice(deltas, self.n)
