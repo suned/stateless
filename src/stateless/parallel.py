@@ -77,6 +77,8 @@ class Parallel:
 
     @property
     def thread_pool(self) -> ThreadPool:
+        """The thread pool used to run tasks in parallel."""
+
         if self._thread_pool is None:
             object.__setattr__(self, "_thread_pool", ThreadPool())
             self._thread_pool.__enter__()  # type: ignore
@@ -84,6 +86,8 @@ class Parallel:
 
     @property
     def manager(self) -> BaseManager:
+        """The multiprocessing manager used to run tasks in parallel."""
+
         if self._manager is None:
             object.__setattr__(self, "_manager", Manager())
             self._manager.__enter__()  # type: ignore
@@ -91,6 +95,8 @@ class Parallel:
 
     @property
     def pool(self) -> PoolProxy:
+        """The multiprocessing pool used to run tasks in parallel."""
+
         if self._pool is None:
             object.__setattr__(self, "_pool", self.manager.Pool())  # type: ignore
             self._pool.__enter__()  # type: ignore
@@ -166,11 +172,23 @@ class Parallel:
     def run_thread_tasks(
         self,
         runtime: "Runtime[object]",
-        effects: Sequence[Task[object, Exception, object]],
+        tasks: Sequence[Task[object, Exception, object]],
     ) -> Sequence[object]:
+        """
+        Run tasks in parallel using threads.
+
+        Args:
+        ----
+            runtime: The runtime to run the tasks in.
+            tasks: The tasks to run.
+
+        Returns:
+        -------
+            The results of the tasks.
+        """
         self.thread_pool.__enter__()
         return self.thread_pool.map(
-            lambda task: runtime.run(iter(task), return_errors=True), effects
+            lambda task: runtime.run(iter(task), return_errors=True), tasks
         )
 
     def run_process_tasks(
@@ -178,6 +196,18 @@ class Parallel:
         runtime: "Runtime[object]",
         tasks: Sequence[Task[object, Exception, object]],
     ) -> Sequence[object]:
+        """
+        Run tasks in parallel using processes.
+
+        Args:
+        ----
+            runtime: The runtime to run the tasks in.
+            tasks: The tasks to run.
+
+        Returns:
+        -------
+            The results of the tasks.
+        """
         payloads: list[bytes] = [cloudpickle.dumps((runtime, task)) for task in tasks]
         return [
             cloudpickle.loads(result) for result in self.pool.map(_run_task, payloads)
@@ -188,6 +218,18 @@ class Parallel:
         runtime: "Runtime[object]",
         tasks: tuple[Task[object, Exception, object], ...],
     ) -> tuple[object, ...] | Exception:
+        """
+        Run tasks in parallel.
+
+        Args:
+        ----
+            runtime: The runtime to run the tasks in.
+            tasks: The tasks to run.
+
+        Returns:
+        -------
+            The results of the tasks.
+        """
         if self.state == "init":
             raise RuntimeError("Parallel must be used as a context manager")
         if self.state == "exited":

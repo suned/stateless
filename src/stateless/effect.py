@@ -101,6 +101,8 @@ class Memoize(Effect[A, E, R]):
     _memoized_result: R | None = field(init=False, default=None)
 
     def send(self, value: A) -> Type[A] | E:
+        """Send a value to the effect."""
+
         if self._memoized_result is not None:
             raise StopIteration(self._memoized_result)
         try:
@@ -116,6 +118,8 @@ class Memoize(Effect[A, E, R]):
         exc_tb: TracebackType | None = None,
         /,
     ) -> Type[A] | E:
+        """Throw an exception into the effect."""
+
         try:
             return self.effect.throw(exc_type, error, exc_tb)  # type: ignore
         except StopIteration as e:
@@ -148,6 +152,18 @@ def memoize(  # type: ignore
     Callable[P, Effect[A, E, R]]
     | Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]
 ):
+    """Memoize a function that returns an effect.
+
+    Args:
+    ----
+        f: The function to memoize.
+        maxsize: The maximum size of the cache.
+        typed: Whether to use typed caching.
+
+    Returns:
+    -------
+        The memoized function.
+    """
     if f is None:
         return partial(memoize, maxsize=maxsize, typed=typed)  # type: ignore
 

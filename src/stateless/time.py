@@ -11,6 +11,13 @@ class Time:
     """The Time ability."""
 
     def sleep(self, seconds: float) -> None:
+        """
+        Sleep for a number of seconds.
+
+        Args:
+        ----
+            seconds: The number of seconds to sleep for.
+        """
         time.sleep(seconds)
 
 

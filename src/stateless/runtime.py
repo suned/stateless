@@ -30,9 +30,34 @@ class Runtime(Generic[A]):
     abilities: tuple[A, ...] = ()
 
     def use(self, ability: A2) -> "Runtime[A | A2]":
+        """
+        Use an ability with this runtime.
+
+        Enables running effects that require the ability.
+
+        Args:
+        ----
+            ability: The ability to use.
+
+        Returns:
+        -------
+            A new runtime with the ability.
+        """
         return Runtime((ability, *self.abilities))
 
     def get_ability(self, ability_type: Type[A]) -> A:
+        """
+        Get an ability from the runtime.
+
+        Args:
+        ----
+            ability_type: The type of the ability to get.
+
+        Returns:
+        -------
+            The ability.
+        """
+
         return _get_ability(ability_type, self.abilities)  # type: ignore
 
     @overload
@@ -46,6 +71,18 @@ class Runtime(Generic[A]):
         ...
 
     def run(self, effect: Effect[A, E, R], return_errors: bool = False) -> R | E:
+        """
+        Run an effect.
+
+        Args:
+        ----
+            effect: The effect to run.
+            return_errors: Whether to return errors yielded by the effect.
+
+        Returns:
+        -------
+            The result of the effect.
+        """
         try:
             ability_or_error = next(effect)
 
