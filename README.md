@@ -28,13 +28,13 @@ from stateless import Effect, depend, throws, catch, Runtime
 
 
 class Files:
-    def read_file(path: str) -> str:
+    def read_file(self, path: str) -> str:
         with open(path) as f:
             return f.read()
 
 
 class Console:
-    def print(value: Any) -> None:
+    def print(self, value: Any) -> None:
         print(value)
 
 
@@ -54,8 +54,7 @@ def print_(value: Any) -> Effect[Console, Never, None]:
 @throws(OSError)
 def read_file(path: str) -> Effect[Files, Never, str]:
     files = yield from depend(Files)
-    return files.read(path)
-
+    return files.read_file(path)
 
 
 # Simple effects can be combined into complex ones by
