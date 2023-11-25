@@ -49,7 +49,7 @@ def print_(value: Any) -> Effect[Console, Never, None]:
 
 # Effects can yield exceptions. 'stateless.throws' will catch exceptions
 # for you and yield them to other functions so you can handle them with
-# type safety. The type of the decorated function in this
+# type safety. The return type of the decorated function in this
 # example is: ´Effect[Files, OSError, str]'
 @throws(OSError)
 def read_file(path: str) -> Effect[Files, Never, str]:
@@ -61,7 +61,8 @@ def read_file(path: str) -> Effect[Files, Never, str]:
 # Simple effects can be combined into complex ones by
 # depending on multiple abilities.
 def print_file(path: str) -> Effect[Files | Console, Never, None]:
-    result = yield from catch(read_file)(path)  # catch will return exceptions yielded by other functions
+    # catch will return exceptions yielded by other functions
+    result = yield from catch(read_file)(path)
     match result:
         case OSError() as error:
             yield from print_(f"error: {error}")
@@ -69,7 +70,8 @@ def print_file(path: str) -> Effect[Files | Console, Never, None]:
             yield from print_(content)
 
 
-# Abilities are provided to effects via stateless.Runtime.run
+# Effects are run using `stateless.Runtime.run`.
+# Abilities are provided to effects via 'stateless.Runtime.use'
 runtime = Runtime().use(Console()).use(Files())
 runtime.run(print_file('foo.txt'))
 
@@ -564,7 +566,7 @@ with Parallel() as ability:
     print(Runtime().use(ability).run(duet()))  # outputs: ("🎵", "🎵")
 ```
 
-In this example the first `sing` invocation will be run in a separate thread process because its wrapped with `thread`, and the second `sing` invocation will be run in a separate process because it's wrapped by `process`. Note that although `thread` and `process` are strictly speaking decorators, they don't return `stateless.Effect` instances. For this reason, it's probably not a good idea to use them as `@thread` or `@process`, since this
+In this example the first `sing` invocation will be run in a separate thread because its wrapped with `thread`, and the second `sing` invocation will be run in a separate process because it's wrapped by `process`. Note that although `thread` and `process` are strictly speaking decorators, they don't return `stateless.Effect` instances. For this reason, it's probably not a good idea to use them as `@thread` or `@process`, since this
 reduces the re-usability of the decorated function. Use them at the call site as shown in the example instead.
 
 `stateless.parallel.Task` _does_ however implement `__iter__` to return the result of the decorated function, so you _can_ yield from them if necessary:
