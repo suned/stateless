@@ -1,3 +1,3 @@
 test:
     coverage run --source=src -m pytest tests
-    coverage report
+    coverage report --fail-under=100
