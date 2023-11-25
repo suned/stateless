@@ -783,7 +783,7 @@ Using coroutines for algebraic effects solves many of the challenges with monadi
 
 - [Handlers of Algebraic Effects (Plotkin and Pretnar)](https://homepages.inf.ed.ac.uk/gdp/publications/Effect_Handlers.pdf)
 
-- [One-Shot Algebraic Effects as Coroutines (Kawahara and Kameyama)](https://link.springer.com/chapter/10.1007/978-3-030-57761-2_8)
+- [One-Shot Algebraic Effects as Coroutines (Kawahara and Kameyama)](https://link.springer.com/chapter/10.1007/978-3-030-57761-2_8) (with an implementation in [ruby](https://github.com/nymphium/ruff) and [lua](https://github.com/Nymphium/eff.lua))
 
 # Similar Projects
 
