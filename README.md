@@ -789,4 +789,12 @@ Using coroutines for algebraic effects solves many of the challenges with monadi
 
 - [Abilities in the Unison language](https://www.unison-lang.org/)
 
+- [Effects in OCaml 5.0](https://v2.ocaml.org/manual/effects.html)
+
 - [Frank language](https://github.com/frank-lang/frank)
+
+- [Koka language](https://koka-lang.github.io/koka/doc/index.html)
+
+- [Eff language](https://www.eff-lang.org/)
+
+- [Effekt language](https://effekt-lang.org/)
