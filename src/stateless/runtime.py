@@ -62,13 +62,13 @@ class Runtime(Generic[A]):
 
     @overload
     def run(self, effect: Effect[A, E, R], return_errors: Literal[False] = False) -> R:
-        ...
+        ...  # pragma: no cover
 
     @overload
     def run(
         self, effect: Effect[A, E, R], return_errors: Literal[True] = True
     ) -> R | E:
-        ...
+        ...  # pragma: no cover
 
     def run(self, effect: Effect[A, E, R], return_errors: bool = False) -> R | E:
         """

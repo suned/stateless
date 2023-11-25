@@ -16,7 +16,7 @@ class Schedule(Protocol[A]):
 
     def __iter__(self) -> Depend[A, Iterator[timedelta]]:
         """Iterate over the schedule."""
-        ...
+        ...  # pragma: no cover
 
 
 @dataclass(frozen=True)

@@ -21,18 +21,6 @@ class Files:
         with open(path) as f:
             return f.read()
 
-    def write_file(self, path: str, content: str) -> None:
-        """
-        Write a file.
-
-        Args:
-        ----
-            path: The path to the file.
-            content: The contents of the file.
-        """
-        with open(path, "w") as f:
-            f.write(content)
-
 
 @throws(FileNotFoundError, PermissionError)
 def read_file(path: str) -> Depend[Files, str]:

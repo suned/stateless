@@ -25,7 +25,7 @@ from typing_extensions import Never
 from stateless.effect import Depend, Effect, Success, throw
 
 if TYPE_CHECKING:
-    from stateless.runtime import Runtime
+    from stateless.runtime import Runtime  # pragma: no cover
 
 
 A = TypeVar("A")
@@ -38,7 +38,7 @@ class Task(Generic[A, E, R]):
     """A task that can be run in parallel.
 
     Captures arguments to functions that return effects
-    in order that they can be run in parallel, remove concerns
+    in order that they can be run in parallel, without concerns
     about serialization and thread-safety of effects.
     """
 
@@ -76,7 +76,7 @@ class DependTask(Task[A, Never, R]):
     """A task that can be run in parallel.
 
     Captures arguments to functions that return effects
-    in order that they can be run in parallel, remove concerns
+    in order that they can be run in parallel, without concerns
     about serialization and thread-safety of effects.
     """
 
@@ -342,17 +342,17 @@ P = ParamSpec("P")
 def process(  # type: ignore
     f: Callable[P, Success[R]]
 ) -> Callable[P, SuccessTask[R]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
 def process(f: Callable[P, Depend[A, R]]) -> Callable[P, DependTask[A, R]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
 def process(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
-    ...
+    ...  # pragma: no cover
 
 
 def process(  # type: ignore
@@ -386,17 +386,17 @@ def process(  # type: ignore
 def thread(  # type: ignore
     f: Callable[P, Success[R]]
 ) -> Callable[P, SuccessTask[R]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
 def thread(f: Callable[P, Depend[A, R]]) -> Callable[P, DependTask[A, R]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
 def thread(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
-    ...
+    ...  # pragma: no cover
 
 
 def thread(  # type: ignore
@@ -428,19 +428,19 @@ def thread(  # type: ignore
 
 @overload
 def parallel() -> Effect[Parallel, Never, tuple[()]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
 def parallel(t1: Task[A1, E1, R1], /) -> Effect[A1 | Parallel, E1, tuple[R1]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
 def parallel(
     t1: Task[A1, E1, R1], t2: Task[A2, E2, R2], /
 ) -> Effect[A1 | A2 | Parallel, E1 | E2, tuple[R1, R2]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
@@ -450,14 +450,14 @@ def parallel(
     t3: Task[A3, E3, R3],
     /,
 ) -> Effect[A1 | A2 | A3 | Parallel, E1 | E2 | E3, tuple[R1, R2, R3]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
 def parallel(
     *tasks: Task[A1, E1, R1],
 ) -> Effect[A1 | Parallel, E1, tuple[R1, ...]]:
-    ...
+    ...  # pragma: no cover
 
 
 def parallel(  # type: ignore

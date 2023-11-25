@@ -16,6 +16,7 @@ from stateless import (
     throw,
     throws,
 )
+from stateless.functions import RetryError
 from stateless.schedule import Recurs, Spaced
 from stateless.time import Time
 
@@ -113,6 +114,16 @@ def test_retry_on_eventual_success() -> None:
     assert Runtime().use(time).run(effect()) == 42
 
 
+def test_retry_on_failure() -> None:
+    @retry(Recurs(2, Spaced(timedelta(seconds=1))))
+    def effect() -> Effect[Never, RuntimeError, int]:
+        return throw(RuntimeError("oops"))
+
+    time: Time = MockTime()
+    with raises(RetryError):
+        Runtime().use(time).run(effect())
+
+
 def test_memoize() -> None:
     counter = 0
 
@@ -132,3 +143,31 @@ def test_memoize() -> None:
 
     assert Runtime().run(g()) == (1, 2, 1, 1)
     assert counter == 2
+
+
+def test_memoize_with_args() -> None:
+    @memoize(maxsize=1, typed=False)
+    def f() -> Success[int]:
+        return success(42)
+
+    assert f.cache_parameters() == {"maxsize": 1, "typed": False}  # type: ignore
+
+
+def test_memoize_on_unhandled_error() -> None:
+    @memoize
+    def f() -> Try[RuntimeError, Never]:
+        return throw(RuntimeError("oops"))
+
+    with raises(RuntimeError, match="oops"):
+        Runtime().run(f())
+
+
+def test_memoize_on_handled_error() -> None:
+    @memoize
+    def f() -> Try[RuntimeError, str]:
+        try:
+            return (yield from throw(RuntimeError("oops")))
+        except RuntimeError:
+            return "done"
+
+    assert Runtime().run(f()) == "done"

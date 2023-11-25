@@ -109,14 +109,14 @@ def depend(ability: Type[A]) -> Depend[A, A]:
 def throws(
     *errors: Type[E2],
 ) -> Callable[[Callable[P, Depend[A, R]]], Callable[P, Effect[A, E2, R]]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
 def throws(  # type: ignore
     *errors: Type[E2],
 ) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E | E2, R]]]:
-    ...
+    ...  # pragma: no cover
 
 
 def throws(  # type: ignore
@@ -188,7 +188,7 @@ class Memoize(Effect[A, E, R]):
 def memoize(
     f: Callable[P, Effect[A, E, R]],
 ) -> Callable[P, Effect[A, E, R]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
@@ -197,7 +197,7 @@ def memoize(
     maxsize: int | None = None,
     typed: bool = False,
 ) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]:
-    ...
+    ...  # pragma: no cover
 
 
 def memoize(  # type: ignore
