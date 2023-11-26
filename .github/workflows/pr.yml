@@ -1,0 +1,31 @@
+name: PR
+on:
+  pull_request:
+
+
+jobs:
+  test:
+    matrix:
+      python-version: [3.9, 3.10, 3.11, 3.12]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        installer-parallel: true
+    - name: Install dependencies
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --no-interaction --no-root
+    - uses: extractions/setup-just@v1
+      with:
+        just-version: '1.4.0'
+    - name: Run tests
+      run: just test
