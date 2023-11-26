@@ -24,7 +24,7 @@ jobs:
         installer-parallel: true
     - name: Install dependencies
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      run: poetry install --no-interaction --no-root
+      run: poetry install --no-interaction
     - uses: extractions/setup-just@v1
       with:
         just-version: '1.4.0'
