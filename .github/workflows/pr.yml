@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.9, 3.10, 3.11, 3.12]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
     - name: Check out repository
       uses: actions/checkout@v3
@@ -29,4 +29,4 @@ jobs:
       with:
         just-version: '1.4.0'
     - name: Run tests
-      run: just test
+      run: poetry run just test
