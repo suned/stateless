@@ -4,9 +4,9 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps
 from types import TracebackType
-from typing import Any, Callable, Type, TypeAlias, TypeVar, cast, overload
+from typing import Any, Callable, Type, TypeVar, cast, overload
 
-from typing_extensions import Never, ParamSpec
+from typing_extensions import Never, ParamSpec, TypeAlias
 
 R = TypeVar("R")
 A = TypeVar("A")
