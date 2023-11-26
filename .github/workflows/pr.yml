@@ -4,10 +4,11 @@ on:
 
 
 jobs:
-  matrix:
-      python-version: [3.9, 3.10, 3.11, 3.12]
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11, 3.12]
     steps:
     - name: Check out repository
       uses: actions/checkout@v3
