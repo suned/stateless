@@ -53,5 +53,5 @@ jobs:
     - uses: extractions/setup-just@v1
       with:
         just-version: '1.16.0'
-    - name: Run tests
+    - name: Lint
       run: poetry run just lint
