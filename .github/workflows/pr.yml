@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out repository
-      uses: actions/checkout@
+      uses: actions/checkout@v3
     - name: Set up Python 3.10
       uses: actions/setup-python@v2
       with:
