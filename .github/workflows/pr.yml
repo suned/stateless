@@ -13,6 +13,13 @@ jobs:
       command: just test
       python-version: ${{ matrix.python-version }}
   lint:
-    uses: ./.github/workflows/dependencies.yml
-    with:
-      command: just lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        uses: ./.github/actions/install_dependencies.yml
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pre-commit/
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: lint
+        run: poetry run just lint
