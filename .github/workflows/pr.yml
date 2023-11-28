@@ -5,13 +5,19 @@ on:
 
 jobs:
   test:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
-    uses: ./.github/workflows/dependencies.yml
-    with:
-      command: just test
-      python-version: ${{ matrix.python-version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run tests
+        run: poetry run just test
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -19,7 +25,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
-      - uses: actions/cache@v3
+      - name: Cache pre-commit
+        uses: actions/cache@v3
         with:
           path: ~/.cache/pre-commit/
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
