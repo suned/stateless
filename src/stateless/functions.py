@@ -27,11 +27,9 @@ def repeat(
     Repeats the effect until the schedule is exhausted, or an exception is yielded.
 
     Args:
-    ----
         schedule: The schedule to repeat the effect according to.
 
     Returns:
-    -------
         A decorator that repeats the effect according to the schedule.
     """
 
@@ -79,11 +77,9 @@ def retry(
     If the effect never returns a value before the schedule is exhausted, a `RetryError` is yielded containing all the errors.
 
     Args:
-    ----
         schedule: The schedule to retry the effect according to.
 
     Returns:
-    -------
         A decorator that retries the effect according to the schedule.
     """
 

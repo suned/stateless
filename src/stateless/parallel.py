@@ -88,7 +88,6 @@ class Parallel:
     Enables running tasks in parallel using threads and processes.
 
     Args:
-    ----
             thread_pool: The thread pool to use to run tasks in parallel.
             pool: The multiprocessing pool to use to run tasks in parallel. Must be a proxy pool.
     """
@@ -149,7 +148,6 @@ class Parallel:
         Get the state of the Parallel ability for pickling.
 
         Returns
-        -------
             The state of the Parallel ability.
         """
         if self._thread_pool is None:
@@ -174,7 +172,6 @@ class Parallel:
         Set the state of the Parallel ability from pickling.
 
         Args:
-        ----
             state: The state of the Parallel ability obtained using __getstate__.
         """
         thread_pool_args, pool = state
@@ -220,12 +217,10 @@ class Parallel:
         Run tasks in parallel using threads.
 
         Args:
-        ----
             runtime: The runtime to run the tasks in.
             tasks: The tasks to run.
 
         Returns:
-        -------
             The results of the tasks.
         """
         self.thread_pool.__enter__()
@@ -242,12 +237,10 @@ class Parallel:
         Run tasks in parallel using processes.
 
         Args:
-        ----
             runtime: The runtime to run the tasks in.
             tasks: The tasks to run.
 
         Returns:
-        -------
             The results of the tasks.
         """
         payloads: list[bytes] = [cloudpickle.dumps((runtime, task)) for task in tasks]
@@ -264,12 +257,10 @@ class Parallel:
         Run tasks in parallel.
 
         Args:
-        ----
             runtime: The runtime to run the tasks in.
             tasks: The tasks to run.
 
         Returns:
-        -------
             The results of the tasks.
         """
         if self.state == "init":
@@ -362,11 +353,9 @@ def process(  # type: ignore
     Create a task that can be run in parallel using processes.
 
     Args:
-    ----
         f: The function to capture as a task.
 
     Returns:
-    -------
         `f` decorated to return a task.
     """
 
@@ -406,11 +395,9 @@ def thread(  # type: ignore
     Create a task that can be run in parallel using threads.
 
     Args:
-    ----
         f: The function to capture as a task.
 
     Returns:
-    -------
         `f` decorated to return a task.
     """
 
@@ -469,11 +456,9 @@ def parallel(  # type: ignore
     If any of the tasks yield an exception, the exception is yielded.
 
     Args:
-    ----
         tasks: The tasks to run.
 
     Returns:
-    -------
         The results of the tasks.
     """
     runtime: "Runtime[Parallel]" = cast("Runtime[Parallel]", (yield Parallel))

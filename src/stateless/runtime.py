@@ -36,11 +36,9 @@ class Runtime(Generic[A]):
         Enables running effects that require the ability.
 
         Args:
-        ----
             ability: The ability to use.
 
         Returns:
-        -------
             A new runtime with the ability.
         """
         return Runtime((ability, *self.abilities))
@@ -50,11 +48,9 @@ class Runtime(Generic[A]):
         Get an ability from the runtime.
 
         Args:
-        ----
             ability_type: The type of the ability to get.
 
         Returns:
-        -------
             The ability.
         """
 
@@ -75,12 +71,10 @@ class Runtime(Generic[A]):
         Run an effect.
 
         Args:
-        ----
             effect: The effect to run.
             return_errors: Whether to return errors yielded by the effect.
 
         Returns:
-        -------
             The result of the effect.
         """
         try:
