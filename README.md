@@ -345,6 +345,73 @@ type Try[E, R] = Effect[Never, E, R]
 ```
 For effects that do not require abilities, but might fail.
 
+Sometimes, instantiating abilities may itself require side-effects. For example, consider a program that requires a `Config` ability:
+
+
+```python
+from stateless import Depend
+
+
+class Config:
+    ...
+
+
+def main() -> Depend[Config, None]:
+    ...
+```
+
+Now imagine that you want to provide the `Config` ability by reading from environment variables:
+
+
+```python
+import os
+
+from stateless import Depend, depend
+
+
+class OS:
+    environ: dict[str, str] = os.environ
+
+
+def get_config() -> Depend[OS, Config]:
+    os = yield from depend(OS)
+    return Config(
+        url=os.environ['AUTH_TOKEN'],
+        auth_token=os.environ['URL']
+    )
+```
+
+To supply the `Config` instance returned from `get_config`, we can use `Runtime.use_effect`:
+
+
+```python
+from stateless import Runtime
+
+
+Runtime().use(OS()).use_effect(get_config()).run(main())
+```
+
+`Runtime.use_effect` assumes that all abilities required by the effect given as its argument can be provided by the runtime. If this is not the case, you'll get a type-checker error:
+
+```python
+from stateless import Depend, Runtime
+
+
+class A:
+    pass
+
+
+class B:
+    pass
+
+
+def get_B() -> Depend[A, B]:
+    ...
+
+Runtime().use(A()).use_effect(get_B())  # OK
+Runtime().use_effect(get_B())           # Type-checker error!
+```
+
 ## Error Handling
 
 So far we haven't used the error type `E` for anything: We've simply parameterized it with `typing.Never`. We've claimed that this means that the effect doesn't fail. This is of course not literally true, as exceptions can still occur even if we parameterize `E` with `Never.`

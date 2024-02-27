@@ -46,13 +46,11 @@ def test_missing_dependency() -> None:
     with raises(MissingAbilityError, match="Super") as info:
         Runtime().run(effect())  # type: ignore
 
-    print(info.getrepr())
-
-    # test that the third frame is the yield
+    # test that the fourth frame is the yield
     # expression in `effect` function above
     # (first is Runtime().run(..)
     # second is effect.throw in Runtime.run)
-    frame = info.traceback[2]
+    frame = info.traceback[3]
     assert str(frame.path) == __file__
     assert frame.lineno == effect.__code__.co_firstlineno
 
@@ -98,3 +96,11 @@ def test_return_errors_on_duplicate_error_type() -> None:
 
     with raises(ValueError, match="oops again"):
         Runtime().run(catches(), return_errors=True)
+
+
+def test_use_effect() -> None:
+    def effect() -> Depend[str, bytes]:
+        ability: str = yield str
+        return ability.encode()
+
+    assert Runtime("ability").use_effect(effect()).run(depend(bytes)) == b"ability"
