@@ -1,6 +1,6 @@
 """Contains the Effect type and core functions for working with effects."""
 
-from collections.abc import Generator
+from collections.abc import Generator, Hashable
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps
 from types import TracebackType
@@ -9,7 +9,7 @@ from typing import Any, Callable, Type, TypeVar, cast, overload
 from typing_extensions import Never, ParamSpec, TypeAlias
 
 R = TypeVar("R")
-A = TypeVar("A")
+A = TypeVar("A", bound=Hashable)
 E = TypeVar("E", bound=Exception)
 P = ParamSpec("P")
 E2 = TypeVar("E2", bound=Exception)
