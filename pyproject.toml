@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "stateless"
-version = "0.5.1"
+version = "0.5.2"
 description = "Statically typed, purely functional effects for Python"
 authors = ["suned <sd@dybro-debel.dk>"]
 readme = "README.md"
