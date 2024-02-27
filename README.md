@@ -349,14 +349,12 @@ Sometimes, instantiating your ability instances may itself require side-effects.
 
 
 ```python
-from typing import Any
-
 from stateless import Depend
 
 
 class Config:
-    url: str
-    auth_token: str
+    ...
+
 
 def main() -> Depend[Config, None]:
     ...
