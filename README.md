@@ -345,7 +345,7 @@ type Try[E, R] = Effect[Never, E, R]
 ```
 For effects that do not require abilities, but might fail.
 
-Sometimes, instantiating your ability instances may itself require side-effects. For example, consider a program that requires a `Config` ability:
+Sometimes, instantiating abilities may itself require side-effects. For example, consider a program that requires a `Config` ability:
 
 
 ```python
