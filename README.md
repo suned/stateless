@@ -345,8 +345,7 @@ type Try[E, R] = Effect[Never, E, R]
 ```
 For effects that do not require abilities, but might fail.
 
-Sometimes, instantiating your effect instances may itself require side-effects. For example, consider a `Http` ability, with one operation `post`, that itself depends on a `Config` ability for
-an auth token and url configuration:
+Sometimes, instantiating your ability instances may itself require side-effects. For example, consider a program that requires a `Config` ability:
 
 
 ```python
@@ -359,10 +358,8 @@ class Config:
     url: str
     auth_token: str
 
-
-class Http:
-    def post(self, data: dict[str, Any]) -> Depend[Config, dict[str, Any]]:
-        ...
+def main() -> Depend[Config, None]:
+    ...
 ```
 
 Now imagine that you want to provide the `Config` ability by reading from environment variables:
@@ -390,18 +387,13 @@ To supply the `Config` instance returned from `get_config`, we can use `Runtime.
 
 
 ```python
-from stateless import Depend, depend, Runtime
+from stateless import Runtime
 
 
-def main() -> Depend[Config | Http, None]
-    http = yield from depend(Http)
-    yield from http.post({'foo': 'bar'})
-
-
-Runtime().use(OS()).use_effect(get_config()).use(Http()).run(main())
+Runtime().use(OS()).use_effect(get_config()).run(main())
 ```
 
-`Runtime.use_effect` assumes that all abilities required by the effect given as its argument can be provided by the effect. If an ability required by an effect that produces other abilities can't be satisfied by the runtime, you'll get a type-checker error:
+`Runtime.use_effect` assumes that all abilities required by the effect given as its argument can be provided by the runtime. If this is not the case, you'll get a type-checker error:
 
 ```python
 from stateless import Depend, Runtime
