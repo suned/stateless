@@ -6,8 +6,8 @@ authors = ["suned <sd@dybro-debel.dk>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
-typing-extensions = "^4.8.0"
+python = "^3.9"
+typing-extensions = ">=4.7.1"
 cloudpickle = "^3.0.0"
 
 
