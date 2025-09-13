@@ -41,6 +41,26 @@ def test_catch() -> None:
     assert str(error) == "oops"
 
 
+def test_catch_with_errors() -> None:
+    effect: Success[RuntimeError | ZeroDivisionError] = catch(  # type: ignore
+        RuntimeError, ZeroDivisionError
+    )(lambda: throw(RuntimeError("oops")))()
+
+    error = Runtime().run(effect)
+
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "oops"
+
+
+def test_catch_with_wrong_error() -> None:
+    effect: Try[ZeroDivisionError, ValueError] = catch(ValueError)(  # type: ignore
+        lambda: throw(ZeroDivisionError())
+    )()
+
+    with raises(ZeroDivisionError):
+        Runtime().run(effect)
+
+
 def test_catch_success() -> None:
     effect = catch(lambda: success(42))()
     value = Runtime().run(effect)

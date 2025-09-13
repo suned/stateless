@@ -1,10 +1,10 @@
 """Contains the Effect type and core functions for working with effects."""
 
-from collections.abc import Generator, Hashable
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps
 from types import TracebackType
-from typing import Any, Callable, Type, TypeVar, cast, overload
+from typing import Any, Callable, Hashable, Type, TypeVar, cast, overload
 
 from typing_extensions import Never, ParamSpec, TypeAlias
 
@@ -39,6 +39,7 @@ def success(result: R) -> Success[R]:
     Returns:
     -------
         An effect that returns the value.
+
     """
     yield None  # type: ignore
     return result
@@ -55,38 +56,65 @@ def throw(reason: E) -> Try[E, Never]:  # type: ignore
     Returns:
     -------
         An effect that yields the exception.
+
     """
     yield reason
 
 
+@overload
+def catch(
+    *errors: Type[E2],
+) -> Callable[[Callable[P, Effect[A, E2 | E, R]]], Callable[P, Effect[A, E, R | E2]]]:
+    ...
+
+
+@overload
 def catch(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
+    ...
+
+
+def catch(f, *errors):  # type: ignore
     """
     Catch exceptions yielded by the effect return by `f`.
 
     Args:
     ----
         f: The function to catch exceptions from.
+        errors: errors to ctach
 
     Returns:
     -------
         `f` decorated such that exceptions yielded by the resulting effect are returned.
+
     """
 
-    @wraps(f)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> Depend[A, E | R]:
-        try:
-            effect = f(*args, **kwargs)
-            ability_or_error = next(effect)
-            while True:
-                if isinstance(ability_or_error, Exception):
-                    return ability_or_error  # type: ignore
-                else:
-                    ability = yield ability_or_error
-                    ability_or_error = effect.send(ability)
-        except StopIteration as e:
-            return e.value  # type: ignore
+    def decorator(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
+        @wraps(f)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Depend[A, E | R]:
+            try:
+                effect = f(*args, **kwargs)
+                ability_or_error = next(effect)
+                errors_to_catch = errors if errors else Exception
+                while True:
+                    if isinstance(ability_or_error, errors_to_catch):
+                        return ability_or_error  # type: ignore
+                    else:
+                        ability = yield ability_or_error  # type: ignore
+                        ability_or_error = effect.send(ability)
+            except StopIteration as e:
+                return e.value  # type: ignore
 
-    return wrapper
+        return wrapper
+
+    try:
+        if issubclass(f, Exception):
+            # called as catch(SomeError)
+            errors = (f, *errors)
+            return decorator
+    except TypeError:
+        # type error indicates called as catch(some_function)
+        # since issubclass call fails in this case
+        return decorator(f)  # pyright: ignore
 
 
 def depend(ability: Type[A]) -> Depend[A, A]:
@@ -100,31 +128,15 @@ def depend(ability: Type[A]) -> Depend[A, A]:
     Returns:
     -------
         An effect that yields the ability and returns the ability sent from the runtime.
+
     """
     a = yield ability
     return cast(A, a)
 
 
-@overload
 def throws(
     *errors: Type[E2],
-) -> Callable[[Callable[P, Depend[A, R]]], Callable[P, Effect[A, E2, R]]]:
-    ...  # pragma: no cover
-
-
-@overload
-def throws(  # type: ignore
-    *errors: Type[E2],
 ) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E | E2, R]]]:
-    ...  # pragma: no cover
-
-
-def throws(  # type: ignore
-    *errors: Type[E2],
-) -> Callable[
-    [Callable[P, Effect[A, E, R] | Depend[A, R]]],
-    Callable[P, Effect[A, E | E2, R] | Effect[A, E2, R]],
-]:
     """
     Decorate functions returning effects by catching exceptions of a certain type and yields them as an effect.
 
@@ -135,6 +147,7 @@ def throws(  # type: ignore
     Returns:
     -------
         A decorator that catches exceptions of a certain type from functions returning effects and yields them as an effect.
+
     """
 
     def decorator(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Effect[A, E | E2, R]]:
@@ -220,6 +233,7 @@ def memoize(  # type: ignore
     Returns:
     -------
         The memoized function.
+
     """
     if f is None:
         return partial(memoize, maxsize=maxsize, typed=typed)  # type: ignore
