@@ -65,12 +65,14 @@ def throw(reason: E) -> Try[E, Never]:  # type: ignore
 def catch(
     *errors: Type[E2],
 ) -> Callable[[Callable[P, Effect[A, E2 | E, R]]], Callable[P, Effect[A, E, R | E2]]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
-def catch(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
-    ...
+def catch(
+    f: Callable[P, Effect[A, E, R]],
+) -> Callable[P, Depend[A, E | R]]:
+    ...  # pragma: no cover
 
 
 def catch(f, *errors):  # type: ignore
