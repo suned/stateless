@@ -62,6 +62,11 @@ def throw(reason: E) -> Try[E, Never]:  # type: ignore
 
 
 @overload
+def catch() -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]:
+    ...
+
+
+@overload
 def catch(
     *errors: Type[E2],
 ) -> Callable[[Callable[P, Effect[A, E2 | E, R]]], Callable[P, Effect[A, E, R | E2]]]:
@@ -75,7 +80,7 @@ def catch(
     ...  # pragma: no cover
 
 
-def catch(f, *errors):  # type: ignore
+def catch(f=None, *errors):  # type: ignore
     """
     Catch exceptions yielded by the effect return by `f`.
 
@@ -90,16 +95,17 @@ def catch(f, *errors):  # type: ignore
 
     """
 
-    def decorator(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
+    def decorator(
+        f: Callable[P, Effect[A, E, R]], errors: tuple[Type[Exception], ...]
+    ) -> Callable[P, Depend[A, E | R]]:
         @wraps(f)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Depend[A, E | R]:
             try:
                 effect = f(*args, **kwargs)
                 ability_or_error = next(effect)
-                errors_to_catch = errors if errors else Exception
                 while True:
-                    if isinstance(ability_or_error, errors_to_catch):
-                        return ability_or_error  # type: ignore
+                    if isinstance(ability_or_error, errors):
+                        return ability_or_error
                     else:
                         ability = yield ability_or_error  # type: ignore
                         ability_or_error = effect.send(ability)
@@ -109,14 +115,15 @@ def catch(f, *errors):  # type: ignore
         return wrapper
 
     try:
+        if f is None:
+            return partial(decorator, errors=())
         if issubclass(f, Exception):
             # called as catch(SomeError)
-            errors = (f, *errors)
-            return decorator
+            return partial(decorator, errors=(f, *errors))
     except TypeError:
         # type error indicates called as catch(some_function)
         # since issubclass call fails in this case
-        return decorator(f)  # pyright: ignore
+        return decorator(f, (Exception,))  # pyright: ignore
 
 
 def depend(ability: Type[A]) -> Depend[A, A]:
