@@ -63,7 +63,7 @@ def throw(reason: E) -> Try[E, Never]:  # type: ignore
 
 @overload
 def catch() -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
