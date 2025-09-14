@@ -33,10 +33,11 @@ def repeat(
     Returns:
     -------
         A decorator that repeats the effect according to the schedule.
+
     """
 
     def decorator(
-        f: Callable[P, Effect[A2, E, R]]
+        f: Callable[P, Effect[A2, E, R]],
     ) -> Callable[P, Effect[A | A2 | Time, E, Tuple[R, ...]]]:
         @wraps(f)
         def wrapper(
@@ -85,10 +86,11 @@ def retry(
     Returns:
     -------
         A decorator that retries the effect according to the schedule.
+
     """
 
     def decorator(
-        f: Callable[P, Effect[A2, E, R]]
+        f: Callable[P, Effect[A2, E, R]],
     ) -> Callable[P, Effect[A | A2 | Time, RetryError[E], R]]:
         @wraps(f)
         def wrapper(

@@ -111,7 +111,7 @@ def test_yield_from_parallel(runtime: Runtime[Parallel]) -> None:
 
 
 def test_passed_in_resources() -> None:
-    with Manager() as manager, manager.Pool() as pool, ThreadPool() as thread_pool:  # type: ignore
+    with Manager() as manager, manager.Pool() as pool, ThreadPool() as thread_pool:
         with Parallel(thread_pool, pool) as p:
             assert p._manager is None
 

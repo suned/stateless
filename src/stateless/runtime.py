@@ -46,6 +46,7 @@ class Runtime(Generic[A]):
         Returns:
         -------
             A new runtime with the ability.
+
         """
         return Runtime(*(*self.abilities, ability))  # type: ignore
 
@@ -64,6 +65,7 @@ class Runtime(Generic[A]):
         Returns:
         -------
             A new runtime with the ability.
+
         """
         return self.use(effect)  # type: ignore
 
@@ -78,6 +80,7 @@ class Runtime(Generic[A]):
         Returns:
         -------
             The ability.
+
         """
 
         return _get_ability(ability_type, self.abilities)  # type: ignore
@@ -110,6 +113,7 @@ class Runtime(Generic[A]):
         Returns:
         -------
             The result of the effect.
+
         """
         abilities: tuple[A, ...] = ()
         for ability in self.abilities:
