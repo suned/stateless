@@ -1,0 +1,20 @@
+name: test
+description: run tests
+inputs:
+  python-version:
+    description: version of python to use
+    required: true
+
+runs:
+  using: composite
+
+  steps:
+    - name: check out repository
+      uses: actions/checkout@v3
+    - name: Install dependencies
+      uses: ./.github/actions/install-dependencies
+      with:
+        python-version: ${{ inputs.python-version}}
+    - name: run tests
+      shell: bash
+      run: poetry run just test
