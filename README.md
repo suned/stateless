@@ -509,6 +509,7 @@ def handle_errors() -> Depend[Files, str]:
 
 Consequently you can use your type checker to avoid unintentionally unhandled errors, or ignore them with type-safety as you please.
 
+
 `catch` is overloaded so you can also use it to catch specific errors and pass other errors up the call stack, just like when using regular exceptions but with type safety:
 
 ```python
@@ -525,7 +526,7 @@ def handle_subset_of_errors() -> Try[PermissionError, str]:
 ```
 
 When supplied with one or more exception types, `catch` will return errors of only those types and yield remaining errors. This means that:
-- You can't neglect to report an error in the signature for `handle_subset_of_errors` since your type checker can tell that `yield from catch(...)(fails_in_multiple_ways)` will still yield e.g `PermissionError`
+- You can't neglect to report an error in the signature for `handle_subset_of_errors` since your type checker can tell that `yield from catch(...)(fails_in_multiple_ways)` will still yield `PermissionError`
 - You can't neglect to handle errors in your code because your type checker can tell that `result` may be 2 different errors or a string.
 
 
