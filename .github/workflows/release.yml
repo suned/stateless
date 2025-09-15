@@ -1,0 +1,34 @@
+name: release
+on:
+  release:
+    types: [published]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - name: check out repository
+        uses: actions/checkout@v3
+      - name: run tests
+        uses: ./.github/actions/test
+        with:
+          python-version: ${{ matrix.python-version }}
+  release:
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: install dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          python-version: 3.12
+      - name: set version
+        run: poetry version ${{ github.event.release.tag_name }}
+      - name: release
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
+        run: poetry publish
