@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  update_release_draft:
+  draft-release:
     permissions:
       # write permission is required to create a github release
       contents: write
