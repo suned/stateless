@@ -376,8 +376,8 @@ class OS:
 def get_config() -> Depend[OS, Config]:
     os = yield from depend(OS)
     return Config(
-        url=os.environ['AUTH_TOKEN'],
-        auth_token=os.environ['URL']
+        auth_token=os.environ['AUTH_TOKEN'],
+        url=os.environ['URL']
     )
 ```
 
@@ -462,7 +462,7 @@ def throw[E: Exception](e: E) -> Effect[Never, E, Never]:
 In words `throw` returns an effect that just yields `e` and never returns. Because of this signature, if you assign the result of `throw` to a variable, you have to annotate it. But there is no meaningful type
 to annotate it with. So you're better off using the somewhat strange looking syntax `return (yield from throw(e))`.
 
-At a slightly higher level you can use `stateless.throws` that just catches exceptions and yields them as an effect
+More conveniently you can use `stateless.throws` that just catches exceptions and yields them as an effect
 
 ```python
 from stateless import Depend, throws
@@ -499,15 +499,36 @@ from stateless import Depend
 def handle_errors() -> Depend[Files, str]:
     result: OSError | str = yield from catch(read_file)('foo.txt')
     match result:
-        case OSError:
+        case OSError():
             return 'default value'
-        case str():
+        case _:
             return result
 
 ```
 (You don't need to annotate the type of `result`, it can be inferred by your type checker. We do it here simply because its instructive to look at the types.)
 
 Consequently you can use your type checker to avoid unintentionally unhandled errors, or ignore them with type-safety as you please.
+
+
+`catch` is overloaded so you can also use it to catch specific errors and pass other errors up the call stack, just like when using regular exceptions but with type safety:
+
+```python
+def fails_in_multiple_ways() -> Try[FileNotFoundError | PermissionError | IsADirectoryError, str]:
+    ...
+
+def handle_subset_of_errors() -> Try[PermissionError, str]:
+    result = yield from catch(FileNotFoundError, IsADirectoryError)(fails_in_multiple_ways)()
+    match result:
+        case FileNotFoundError() | IsADirectoryError():
+            return 'default value'
+        case _:
+            return result
+```
+
+When supplied with one or more exception types, `catch` will return errors of only those types and yield remaining errors. This means that:
+- You can't neglect to report an error in the signature for `handle_subset_of_errors` since your type checker can tell that `yield from catch(...)(fails_in_multiple_ways)` will still yield `PermissionError`
+- You can't neglect to handle errors in your code because your type checker can tell that `result` may be 2 different errors or a string.
+
 
 `catch` is a good example of a pattern used in many places in `stateless`: using decorators to change the result of an effect. The reason for this pattern is that generators are mutable objects.
 

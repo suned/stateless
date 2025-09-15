@@ -91,6 +91,7 @@ class Parallel:
     ----
             thread_pool: The thread pool to use to run tasks in parallel.
             pool: The multiprocessing pool to use to run tasks in parallel. Must be a proxy pool.
+
     """
 
     _thread_pool: ThreadPool | None
@@ -150,7 +151,10 @@ class Parallel:
 
         Returns
         -------
-            The state of the Parallel ability.
+        tuple[tuple[int, Callable[..., tuple[object, ...]], tuple[object, ...]] | None, PoolProxy]
+            A tuple containing the thread pool state (or None) and the process pool proxy.
+
+
         """
         if self._thread_pool is None:
             return None, self.pool
@@ -176,6 +180,7 @@ class Parallel:
         Args:
         ----
             state: The state of the Parallel ability obtained using __getstate__.
+
         """
         thread_pool_args, pool = state
         if thread_pool_args is None:
@@ -227,6 +232,7 @@ class Parallel:
         Returns:
         -------
             The results of the tasks.
+
         """
         self.thread_pool.__enter__()
         return self.thread_pool.map(
@@ -249,6 +255,7 @@ class Parallel:
         Returns:
         -------
             The results of the tasks.
+
         """
         payloads: list[bytes] = [cloudpickle.dumps((runtime, task)) for task in tasks]
         return [
@@ -271,6 +278,7 @@ class Parallel:
         Returns:
         -------
             The results of the tasks.
+
         """
         if self.state == "init":
             raise RuntimeError("Parallel must be used as a context manager")
@@ -340,23 +348,27 @@ P = ParamSpec("P")
 # I'm not sure why this is overload is necessary, but mypy complains without it
 @overload
 def process(  # type: ignore
-    f: Callable[P, Success[R]]
+    f: Callable[P, Success[R]],
 ) -> Callable[P, SuccessTask[R]]:
     ...  # pragma: no cover
 
 
 @overload
-def process(f: Callable[P, Depend[A, R]]) -> Callable[P, DependTask[A, R]]:
+def process(
+    f: Callable[P, Depend[A, R]],
+) -> Callable[P, DependTask[A, R]]:
     ...  # pragma: no cover
 
 
 @overload
-def process(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
+def process(
+    f: Callable[P, Effect[A, E, R]],
+) -> Callable[P, Task[A, E, R]]:
     ...  # pragma: no cover
 
 
 def process(  # type: ignore
-    f: Callable[P, Effect[object, Exception, object]]
+    f: Callable[P, Effect[object, Exception, object]],
 ) -> Callable[P, Task[object, Exception, object]]:
     """
     Create a task that can be run in parallel using processes.
@@ -368,6 +380,7 @@ def process(  # type: ignore
     Returns:
     -------
         `f` decorated to return a task.
+
     """
 
     @wraps(f)
@@ -384,23 +397,27 @@ def process(  # type: ignore
 
 @overload
 def thread(  # type: ignore
-    f: Callable[P, Success[R]]
+    f: Callable[P, Success[R]],
 ) -> Callable[P, SuccessTask[R]]:
     ...  # pragma: no cover
 
 
 @overload
-def thread(f: Callable[P, Depend[A, R]]) -> Callable[P, DependTask[A, R]]:
+def thread(
+    f: Callable[P, Depend[A, R]],
+) -> Callable[P, DependTask[A, R]]:
     ...  # pragma: no cover
 
 
 @overload
-def thread(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Task[A, E, R]]:
+def thread(
+    f: Callable[P, Effect[A, E, R]],
+) -> Callable[P, Task[A, E, R]]:
     ...  # pragma: no cover
 
 
 def thread(  # type: ignore
-    f: Callable[P, Effect[object, Exception, object]]
+    f: Callable[P, Effect[object, Exception, object]],
 ) -> Callable[P, Task[object, Exception, object]]:
     """
     Create a task that can be run in parallel using threads.
@@ -412,6 +429,7 @@ def thread(  # type: ignore
     Returns:
     -------
         `f` decorated to return a task.
+
     """
 
     @wraps(f)
@@ -475,6 +493,7 @@ def parallel(  # type: ignore
     Returns:
     -------
         The results of the tasks.
+
     """
     runtime: "Runtime[Parallel]" = cast("Runtime[Parallel]", (yield Parallel))
     ability = runtime.get_ability(Parallel)

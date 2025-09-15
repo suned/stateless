@@ -1,4 +1,4 @@
- repos:
+repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
@@ -12,24 +12,24 @@
     # Ruff version.
     rev: v0.1.6
     hooks:
-    # Run the linter.
-    - id: ruff
-      args: [ --fix ]
-    # Run the formatter.
-    - id: ruff-format
+      # Run the linter.
+      - id: ruff
+        args: [--fix]
+      # Run the formatter.
+      - id: ruff-format
   - repo: https://github.com/jsh9/pydoclint
     rev: 0.3.4
     hooks:
-    - id: pydoclint
+      - id: pydoclint
   - repo: local
     hooks:
-    - id: mypy
-      name: mypy
-      entry: mypy
-      language: system
-      types: [python]
-    - id: pyright
-      name: pyright
-      language: system
-      types: [python]
-      entry: pyright
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+      - id: pyright
+        name: pyright
+        language: system
+        types: [python]
+        entry: pyright
