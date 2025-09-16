@@ -4,12 +4,12 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps
 from types import TracebackType
-from typing import Any, Callable, Hashable, Type, TypeVar, cast, overload
+from typing import Any, Callable, Type, TypeVar, cast, overload
 
 from typing_extensions import Never, ParamSpec, TypeAlias
 
 R = TypeVar("R")
-A = TypeVar("A", bound=Hashable)
+A = TypeVar("A")
 E = TypeVar("E", bound=Exception)
 P = ParamSpec("P")
 E2 = TypeVar("E2", bound=Exception)
