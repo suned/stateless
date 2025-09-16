@@ -1,25 +1,33 @@
 """Runtime for executing effects."""
 
-from collections.abc import Generator, Hashable
+from collections.abc import Generator
 from dataclasses import dataclass
-from functools import cache
 from typing import Generic, Literal, Tuple, Type, TypeVar, cast, overload
 
 from stateless.effect import Effect
 from stateless.errors import MissingAbilityError
 from stateless.parallel import Parallel
 
-A = TypeVar("A", bound=Hashable)
-A2 = TypeVar("A2", bound=Hashable)
-A3 = TypeVar("A3", bound=Hashable)
+A = TypeVar("A")
+A2 = TypeVar("A2")
+A3 = TypeVar("A3")
 R = TypeVar("R")
 E = TypeVar("E", bound=Exception)
 
 
-@cache
-def _get_ability(ability_type: Type[A], abilities: Tuple[A, ...]) -> A:
+def _cache_key(ability_type: Type[A]) -> str:
+    return f"{ability_type.__module__}.{ability_type.__name__}"
+
+
+def _get_ability(
+    ability_type: Type[A], abilities: Tuple[A, ...], ability_cache: dict[str, A]
+) -> A:
+    cache_key = _cache_key(ability_type)
+    if cache_key in ability_cache:
+        return ability_cache[cache_key]
     for ability in abilities:
         if isinstance(ability, ability_type):
+            ability_cache[cache_key] = ability
             return ability
     raise MissingAbilityError(ability_type)
 
@@ -29,9 +37,11 @@ class Runtime(Generic[A]):
     """A runtime for executing effects."""
 
     abilities: tuple[A, ...]
+    _ability_cache: dict[str, A]
 
     def __init__(self, *abilities: A):
         object.__setattr__(self, "abilities", abilities)
+        object.__setattr__(self, "_ability_cache", {})
 
     def use(self, ability: A2) -> "Runtime[A | A2]":
         """
@@ -83,7 +93,7 @@ class Runtime(Generic[A]):
 
         """
 
-        return _get_ability(ability_type, self.abilities)  # type: ignore
+        return _get_ability(ability_type, self.abilities, self._ability_cache)
 
     @overload
     def run(
@@ -147,7 +157,9 @@ class Runtime(Generic[A]):
                         case ability_type if ability_type is Parallel:
                             ability_or_error = effect.send(self)
                         case ability_type:
-                            ability = _get_ability(ability_type, abilities)
+                            ability = _get_ability(
+                                ability_type, abilities, self._ability_cache
+                            )
                             ability_or_error = effect.send(ability)
                 except MissingAbilityError as error:
                     ability_or_error = effect.throw(error)
