@@ -22,7 +22,7 @@ from stateless import Effect, depend, throws, catch, Runtime
 
 # stateless.Effect is just an alias for:
 #
-# from typing import Generator, Any
+# from typing import Type, Generator, Any
 #
 # type Effect[A, E: Exception, R] = Generator[Type[A] | E, Any, R]
 
