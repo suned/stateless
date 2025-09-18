@@ -24,7 +24,7 @@ def test_error_handling(runtime: Runtime[Parallel]) -> None:
         result = yield from parallel(thread(f)())
         return result
 
-    result = runtime.run(catch(g)())
+    result = runtime.run(catch(ValueError)(g)())
     assert isinstance(result, ValueError)
     assert result.args == ("error",)
 
@@ -38,7 +38,7 @@ def test_process_error_handling(runtime: Runtime[Parallel]) -> None:
         result = yield from parallel(process(f)())
         return result
 
-    result = runtime.run(catch(g)())
+    result = runtime.run(catch(ValueError)(g)())
     assert isinstance(result, ValueError)
     assert result.args == ("error",)
 

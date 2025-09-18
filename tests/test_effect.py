@@ -33,7 +33,9 @@ def test_throw() -> None:
 
 
 def test_catch() -> None:
-    effect: Success[RuntimeError] = catch(lambda: throw(RuntimeError("oops")))()
+    effect: Success[RuntimeError] = catch(RuntimeError)(
+        lambda: throw(RuntimeError("oops"))
+    )()
 
     error = Runtime().run(effect)
 
@@ -53,13 +55,13 @@ def test_catch_with_errors() -> None:
 
 
 def test_catch_with_nothing() -> None:
-    effect: Try[RuntimeError, None] = catch()(lambda: throw(RuntimeError("oops")))()  # type: ignore
+    effect: Try[RuntimeError, None] = catch()(lambda: throw(RuntimeError("oops")))()
     with raises(RuntimeError, match="oops"):
         Runtime().run(effect)
 
 
 def test_catch_with_wrong_error() -> None:
-    effect: Try[ZeroDivisionError, ValueError] = catch(ValueError)(  # type: ignore
+    effect: Try[ZeroDivisionError, ValueError] = catch(ValueError)(
         lambda: throw(ZeroDivisionError())
     )()
 
@@ -68,7 +70,7 @@ def test_catch_with_wrong_error() -> None:
 
 
 def test_catch_success() -> None:
-    effect = catch(lambda: success(42))()
+    effect = catch(Exception)(lambda: success(42))()
     value = Runtime().run(effect)
 
     assert value == 42
@@ -79,7 +81,7 @@ def test_catch_unhandled() -> None:
         raise ValueError("oops")
 
     with raises(ValueError, match="oops"):
-        Runtime().run(catch(effect)())
+        Runtime().run(catch(ValueError)(effect)())
 
 
 def test_throws() -> None:

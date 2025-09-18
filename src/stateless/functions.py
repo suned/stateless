@@ -3,7 +3,7 @@
 from functools import wraps
 from typing import Callable, Generic, ParamSpec, Tuple, TypeVar
 
-from stateless.effect import Effect, catch, throw
+from stateless.effect import Effect, catch_all, throw
 from stateless.schedule import Schedule
 from stateless.time import Time, sleep
 
@@ -46,7 +46,7 @@ def repeat(
             deltas = yield from schedule
             results = []
             for interval in deltas:
-                result = yield from catch(f)(*args, **kwargs)
+                result = yield from catch_all(f)(*args, **kwargs)
                 match result:
                     case Exception() as error:
                         return (yield from throw(error))  # type: ignore
@@ -99,7 +99,7 @@ def retry(
             deltas = yield from schedule
             errors = []
             for interval in deltas:
-                result = yield from catch(f)(*args, **kwargs)
+                result = yield from catch_all(f)(*args, **kwargs)
                 match result:
                     case Exception() as error:
                         errors.append(error)

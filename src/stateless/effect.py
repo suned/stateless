@@ -4,7 +4,7 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps
 from types import TracebackType
-from typing import Any, Callable, Type, TypeVar, cast, overload
+from typing import Any, Callable, Generic, Type, TypeVar, cast, overload
 
 from typing_extensions import Never, ParamSpec, TypeAlias
 
@@ -16,8 +16,8 @@ E2 = TypeVar("E2", bound=Exception)
 
 Effect: TypeAlias = Generator[Type[A] | E, Any, R]
 Depend: TypeAlias = Generator[Type[A], Any, R]
-Success: TypeAlias = Depend[Never, R]
-Try: TypeAlias = Generator[E, Never, R]
+Success: TypeAlias = Generator[Type[Never], Any, R]
+Try: TypeAlias = Generator[E, Any, R]
 
 
 class NoResultError(Exception):
@@ -26,6 +26,10 @@ class NoResultError(Exception):
     If this error is raised to user code
     it should be considered a bug in stateless.
     """
+
+
+def run(effect: Try[Exception, R]) -> R:
+    raise NotImplementedError()
 
 
 def success(result: R) -> Success[R]:
@@ -61,50 +65,58 @@ def throw(reason: E) -> Try[E, Never]:  # type: ignore
     yield reason
 
 
-@overload
-def catch() -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]:
-    ...  # pragma: no cover
+# this class exists solely for type inference purposes
+# the original design was a number of overloads
+# of a function catch: (*E) -> ((**P) -> Effect[A, E | E2, R]) -> (**P) -> Effect[A, E2, R | E]
+# but this made it impossible to overload the returned function to correctly handle "Never"
+# arguments when ability or error types should be missing
+# leading to mypy complaining that return values must be annotated.
+# With this design, that does not happen.
+@dataclass(frozen=True, init=False)
+class Catch(Generic[E]):
+    errors: tuple[Type[E], ...]
 
+    @overload
+    def __init__(self: "Catch[Never]"):
+        ...  # pragma: no cover
 
-@overload
-def catch(
-    *errors: Type[E2],
-) -> Callable[[Callable[P, Effect[A, E2 | E, R]]], Callable[P, Effect[A, E, R | E2]]]:
-    ...  # pragma: no cover
+    @overload
+    def __init__(self, *errors: Type[E]):
+        ...  # pragma: no cover
 
+    def __init__(self, *errors: Type[E]):
+        object.__setattr__(self, "errors", errors)
 
-@overload
-def catch(
-    f: Callable[P, Effect[A, E, R]],
-) -> Callable[P, Depend[A, E | R]]:
-    ...  # pragma: no cover
+    @overload
+    def __call__(self, f: Callable[P, Try[E, R]]) -> Callable[P, Success[R | E]]:
+        ...  # pragma: no cover
 
+    @overload
+    def __call__(  # pyright: ignore[reportOverlappingOverload]
+        self, f: Callable[P, Effect[A, E, R]]
+    ) -> Callable[P, Depend[A, R | E]]:
+        ...  # pragma: no cover
 
-def catch(f=None, *errors):  # type: ignore
-    """
-    Catch exceptions yielded by the effect return by `f`.
+    @overload
+    def __call__(self, f: Callable[P, Try[E | E2, R]]) -> Callable[P, Try[E2, R]]:
+        ...  # pragma: no cover
 
-    Args:
-    ----
-        f: The function to catch exceptions from.
-        errors: errors to ctach
+    @overload
+    def __call__(
+        self, f: Callable[P, Effect[A, E2 | E, R]]
+    ) -> Callable[P, Effect[A, E2, R | E]]:
+        ...  # pragma: no cover
 
-    Returns:
-    -------
-        `f` decorated such that exceptions yielded by the resulting effect are returned.
-
-    """
-
-    def decorator(
-        f: Callable[P, Effect[A, E, R]], errors: tuple[Type[Exception], ...]
-    ) -> Callable[P, Depend[A, E | R]]:
+    def __call__(
+        self, f: Callable[P, Effect[A, E2 | E, R]]
+    ) -> Callable[P, Effect[A, E2, R | E]]:
         @wraps(f)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Depend[A, E | R]:
             try:
                 effect = f(*args, **kwargs)
                 ability_or_error = next(effect)
                 while True:
-                    if isinstance(ability_or_error, errors):
+                    if isinstance(ability_or_error, self.errors):
                         return ability_or_error
                     else:
                         ability = yield ability_or_error  # type: ignore
@@ -114,16 +126,23 @@ def catch(f=None, *errors):  # type: ignore
 
         return wrapper
 
-    try:
-        if f is None:
-            return partial(decorator, errors=())
-        if issubclass(f, Exception):
-            # called as catch(SomeError)
-            return partial(decorator, errors=(f, *errors))
-    except TypeError:
-        # type error indicates called as catch(some_function)
-        # since issubclass call fails in this case
-        return decorator(f, (Exception,))  # pyright: ignore
+
+@overload
+def catch() -> Catch[Never]:
+    ...  # pragma: no cover
+
+
+@overload
+def catch(*errors: Type[E]) -> Catch[E]:
+    ...  # pragma: no cover
+
+
+def catch(*errors: Type[E]) -> Catch[E]:
+    return Catch(*errors)
+
+
+def catch_all(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
+    return Catch(Exception)(f)  # type: ignore
 
 
 def depend(ability: Type[A]) -> Depend[A, A]:

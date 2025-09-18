@@ -17,6 +17,7 @@ class Time:
         Args:
         ----
             seconds: The number of seconds to sleep for.
+
         """
         time.sleep(seconds)
 
@@ -32,6 +33,7 @@ def sleep(seconds: float) -> Depend[Time, None]:
     Returns:
     -------
         An effect that sleeps for a number of seconds.
+
     """
     time_ = yield Time
     time_.sleep(seconds)
