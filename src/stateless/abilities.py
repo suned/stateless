@@ -89,7 +89,7 @@ class Abilities(Generic[A]):
         self,
         f: Callable[P, Effect[A, E, R]],
     ) -> Callable[P, Try[E, R]]:
-        ...
+        ...   # pragma: no cover
 
     @overload
     def handle(self, f: Callable[P, Depend[A | A2, R]]) -> Callable[P, Depend[A2, R]]:
