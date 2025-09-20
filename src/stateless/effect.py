@@ -1,5 +1,6 @@
 """Contains the Effect type and core functions for working with effects."""
 
+import sys
 from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps
@@ -19,7 +20,7 @@ E2 = TypeVar("E2", bound=Exception)
 Effect: TypeAlias = Generator[Type[A] | E, Any, R]
 Depend: TypeAlias = Generator[Type[A], Any, R]
 Success: TypeAlias = Generator[Type[Never], Any, R]
-Try: TypeAlias = Generator[E, Any, R]
+Try: TypeAlias = Generator[Type[Never] | E, Any, R]
 
 
 class NoResultError(Exception):
@@ -35,14 +36,19 @@ def run(effect: Try[Exception, R]) -> R:
         try:
             ability_or_error = next(effect)
             match ability_or_error:
+                case None:
+                    # special case for stateless.success
+                    effect.send(None)
                 case Exception() as error:
+                    # at this point this is an exception
+                    # not handled with stateless.catch anywhere
                     effect.throw(error)
                 case ability_type:
                     # At this point all abilities should be handled,
                     # so any ability request indicates a missing ability
                     effect.throw(MissingAbilityError(ability_type))
         except StopIteration as e:
-            return e.value
+            return cast(R, e.value)
 
 
 def success(result: R) -> Success[R]:
@@ -90,33 +96,35 @@ class Catch(Generic[E]):
     errors: tuple[Type[E], ...]
 
     @overload
-    def __init__(self: "Catch[Never]"): ...  # pragma: no cover
+    def __init__(self: "Catch[Never]"):
+        ...  # pragma: no cover
 
     @overload
-    def __init__(self, *errors: Type[E]): ...  # pragma: no cover
+    def __init__(self, *errors: Type[E]):
+        ...  # pragma: no cover
 
     def __init__(self, *errors: Type[E]):
         object.__setattr__(self, "errors", errors)
 
     @overload
-    def __call__(
-        self, f: Callable[P, Try[E, R]]
-    ) -> Callable[P, Success[R | E]]: ...  # pragma: no cover
+    def __call__(self, f: Callable[P, Try[E, R]]) -> Callable[P, Success[R | E]]:
+        ...  # pragma: no cover
 
     @overload
     def __call__(  # pyright: ignore[reportOverlappingOverload]
         self, f: Callable[P, Effect[A, E, R]]
-    ) -> Callable[P, Depend[A, R | E]]: ...  # pragma: no cover
+    ) -> Callable[P, Depend[A, R | E]]:
+        ...  # pragma: no cover
 
     @overload
-    def __call__(
-        self, f: Callable[P, Try[E | E2, R]]
-    ) -> Callable[P, Try[E2, R]]: ...  # pragma: no cover
+    def __call__(self, f: Callable[P, Try[E | E2, R]]) -> Callable[P, Try[E2, R]]:
+        ...  # pragma: no cover
 
     @overload
     def __call__(
         self, f: Callable[P, Effect[A, E2 | E, R]]
-    ) -> Callable[P, Effect[A, E2, R | E]]: ...  # pragma: no cover
+    ) -> Callable[P, Effect[A, E2, R | E]]:
+        ...  # pragma: no cover
 
     def __call__(
         self, f: Callable[P, Effect[A, E2 | E, R]]
@@ -139,11 +147,13 @@ class Catch(Generic[E]):
 
 
 @overload
-def catch() -> Catch[Never]: ...  # pragma: no cover
+def catch() -> Catch[Never]:
+    ...  # pragma: no cover
 
 
 @overload
-def catch(*errors: Type[E]) -> Catch[E]: ...  # pragma: no cover
+def catch(*errors: Type[E]) -> Catch[E]:
+    ...  # pragma: no cover
 
 
 def catch(*errors: Type[E]) -> Catch[E]:
@@ -167,7 +177,10 @@ def depend(ability: Type[A]) -> Depend[A, A]:
         An effect that yields the ability and returns the ability sent from the runtime.
 
     """
-    a = yield ability
+    try:
+        a = yield ability
+    except MissingAbilityError as e:
+        raise MissingAbilityError(*e.args) from None
     return cast(A, a)
 
 
@@ -218,26 +231,39 @@ class Memoize(Effect[A, E, R]):
             object.__setattr__(self, "_memoized_result", e.value)
             raise e
 
-    def throw(
-        self,
-        exc_type: Type[BaseException] | BaseException,
-        error: BaseException | object | None = None,
-        exc_tb: TracebackType | None = None,
-        /,
-    ) -> Type[A] | E:
-        """Throw an exception into the effect."""
+    if sys.version_info < (3, 12):  # pragma: no cover
 
-        try:
-            return self.effect.throw(exc_type, error, exc_tb)  # type: ignore
-        except StopIteration as e:
-            object.__setattr__(self, "_memoized_result", e.value)
-            raise e
+        def throw(
+            self,
+            exc_type: Type[BaseException] | BaseException,
+            error: BaseException | object | None = None,
+            exc_tb: TracebackType | None = None,
+            /,
+        ) -> Type[A] | E:
+            """Throw an exception into the effect."""
+
+            try:
+                return self.effect.throw(exc_type, error, exc_tb)  # type: ignore
+            except StopIteration as e:
+                object.__setattr__(self, "_memoized_result", e.value)
+                raise e
+    else:
+
+        def throw(self, value: Exception, /) -> Type[A] | E:  # type: ignore
+            """Throw an exception into the effect."""
+
+            try:
+                return self.effect.throw(value)
+            except StopIteration as e:
+                object.__setattr__(self, "_memoized_result", e.value)
+                raise e
 
 
 @overload
 def memoize(
     f: Callable[P, Effect[A, E, R]],
-) -> Callable[P, Effect[A, E, R]]: ...  # pragma: no cover
+) -> Callable[P, Effect[A, E, R]]:
+    ...  # pragma: no cover
 
 
 @overload
@@ -245,9 +271,8 @@ def memoize(
     *,
     maxsize: int | None = None,
     typed: bool = False,
-) -> Callable[
-    [Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]
-]: ...  # pragma: no cover
+) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]:
+    ...  # pragma: no cover
 
 
 def memoize(  # type: ignore

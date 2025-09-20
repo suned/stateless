@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 
 from pytest import raises
-from stateless import Depend, Effect, Runtime, Try, depend
-from stateless.errors import MissingAbilityError
 from typing_extensions import Never
+
+from stateless import Abilities, Depend, Effect, depend, run
+from stateless.errors import MissingAbilityError
+from tests.utils import run_with_abilities
 
 
 @dataclass(frozen=True)
@@ -28,14 +30,16 @@ def test_run_with_unhandled_exception() -> None:
 
     e = fails()
     with raises(RuntimeError, match="oops"):
-        Runtime().use("").run(e)
+        run_with_abilities(e, Abilities(""))
 
 
 def test_provide_multiple_sub_types() -> None:
     sub: Super = Sub()
     subsub: Super = SubSub()
-    assert Runtime().use(subsub).use(sub).run(depend(Super)) == Sub()
-    assert Runtime().use(sub).use(subsub).run(depend(Super)) == SubSub()
+    abilities = Abilities().add(subsub).add(sub)
+    assert run_with_abilities(depend(Super), abilities) == Sub()
+    abilities = Abilities().add(sub).add(subsub)
+    assert run_with_abilities(depend(Super), abilities) == SubSub()
 
 
 def test_missing_dependency() -> None:
@@ -44,13 +48,26 @@ def test_missing_dependency() -> None:
         return ability
 
     with raises(MissingAbilityError, match="Super") as info:
-        Runtime().run(effect())  # type: ignore
+        run(effect())  # type: ignore
 
     # test that the fourth frame is the yield
     # expression in `effect` function above
     # (first is Runtime().run(..)
     # second is effect.throw in Runtime.run)
-    frame = info.traceback[3]
+    frame = info.traceback[2]
+    assert str(frame.path) == __file__
+    assert frame.lineno == effect.__code__.co_firstlineno
+
+
+def test_missing_dependency_with_abilities() -> None:
+    def effect() -> Depend[Super, Super]:
+        ability: Super = yield Super
+        return ability
+
+    with raises(MissingAbilityError, match="Super") as info:
+        run_with_abilities(effect(), Abilities())
+
+    frame = info.traceback[5]
     assert str(frame.path) == __file__
     assert frame.lineno == effect.__code__.co_firstlineno
 
@@ -60,7 +77,7 @@ def test_simple_dependency() -> None:
         ability: str = yield str
         return ability
 
-    assert Runtime().use("hi!").run(effect()) == "hi!"
+    assert run_with_abilities(effect(), Abilities("hi!")) == "hi!"
 
 
 def test_simple_failure() -> None:
@@ -69,33 +86,7 @@ def test_simple_failure() -> None:
         return
 
     with raises(ValueError, match="oops"):
-        Runtime().run(effect())
-
-
-def test_return_errors() -> None:
-    def fails() -> Try[ValueError, None]:
-        yield ValueError("oops")
-        return
-
-    result = Runtime().run(fails(), return_errors=True)
-    assert isinstance(result, ValueError)
-    assert result.args == ("oops",)
-
-
-def test_return_errors_on_duplicate_error_type() -> None:
-    def fails() -> Try[ValueError, None]:
-        yield ValueError("oops")
-        return
-
-    def catches() -> Try[ValueError, None]:
-        try:
-            yield from fails()
-        except ValueError:
-            pass
-        raise ValueError("oops again")
-
-    with raises(ValueError, match="oops again"):
-        Runtime().run(catches(), return_errors=True)
+        run(effect())
 
 
 def test_use_effect() -> None:
@@ -103,4 +94,5 @@ def test_use_effect() -> None:
         ability: str = yield str
         return ability.encode()
 
-    assert Runtime("ability").use_effect(effect()).run(depend(bytes)) == b"ability"
+    abilities = Abilities().add("ability").add_effect(effect)
+    assert run_with_abilities(depend(bytes), abilities) == b"ability"
