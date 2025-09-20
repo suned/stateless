@@ -85,17 +85,15 @@ class Abilities(Generic[A]):
         ...  # pragma: no cover
 
     @overload
-    def handle(  # type: ignore
-        self, f: Callable[P, Depend[A | A2, R]]
-    ) -> Callable[P, Depend[A2, R]]:
-        ...  # pragma: no cover
-
-    @overload
-    def handle(
+    def handle(  # pyright: ignore
         self,
         f: Callable[P, Effect[A, E, R]],
     ) -> Callable[P, Try[E, R]]:
         ...
+
+    @overload
+    def handle(self, f: Callable[P, Depend[A | A2, R]]) -> Callable[P, Depend[A2, R]]:
+        ...  # pragma: no cover
 
     @overload
     def handle(
