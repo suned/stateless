@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
 from pytest import raises
-from typing_extensions import Never
-
 from stateless import Abilities, Depend, Effect, depend, run
 from stateless.errors import MissingAbilityError
+from typing_extensions import Never
+
 from tests.utils import run_with_abilities
 
 
