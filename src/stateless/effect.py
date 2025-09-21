@@ -32,6 +32,17 @@ class NoResultError(Exception):
 
 
 def run(effect: Try[Exception, R]) -> R:
+    """
+    Run an effect.
+
+    Args:
+    ----
+        effect: The effect to run.
+
+    Returns:
+    -------
+        The result of running `effect`.
+    """
     while True:
         try:
             ability_or_error = next(effect)
@@ -93,6 +104,8 @@ def throw(reason: E) -> Try[E, Never]:  # type: ignore
 # With this design, that does not happen.
 @dataclass(frozen=True, init=False)
 class Catch(Generic[E]):
+    """Provides improved type-checker inference for calls to `catch`."""
+
     errors: tuple[Type[E], ...]
 
     @overload
@@ -129,6 +142,16 @@ class Catch(Generic[E]):
     def __call__(
         self, f: Callable[P, Effect[A, E2 | E, R]]
     ) -> Callable[P, Effect[A, E2, R | E]]:
+        """
+        Catch and yield errors produced by the effect returned by `f`.
+
+        Args:
+        ----
+            f: The function to catch effects for
+        Return:
+            `f`, but returning an effect where errors are included in the result type.
+        """
+
         @wraps(f)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Depend[A, E | R]:
             try:
@@ -157,10 +180,30 @@ def catch(*errors: Type[E]) -> Catch[E]:
 
 
 def catch(*errors: Type[E]) -> Catch[E]:
+    """
+    Catch `errors` in functions returning effects.
+
+    Args:
+    ----
+        errors: The error types to catch.
+
+    Returns:
+    -------
+        Decorator function where `errors` are returned as the result type of effects.
+    """
     return Catch(*errors)
 
 
 def catch_all(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
+    """
+    Like `catch` but catch all errors yielded by `f`.
+
+    Args:
+    ----
+        f: The function to catch effects for
+    Returns:
+        `f`, but returning an effect where errors are included in the result type.
+    """
     return Catch(Exception)(f)  # type: ignore
 
 

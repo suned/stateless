@@ -1,6 +1,9 @@
+"""Module with classes and functions for providing abililties to effects."""
+
 from dataclasses import dataclass
 from functools import wraps
 from typing import Callable, Generic, ParamSpec, Type, TypeVar, cast, overload
+
 from typing_extensions import Never
 
 from stateless.effect import Depend, Effect, Success, Try, run
@@ -20,11 +23,22 @@ def _cache_key(ability_type: Type[A]) -> str:
 
 @dataclass
 class EffectAbility(Generic[A, R]):
+    """
+    Wrapper for effects passed to Abilities.add_effect.
+
+    Used mainly to distinguish these abilities
+    from other abilities at runtime using isinstance
+    to tell if an ability requires interpretation
+    to get its value.
+    """
+
     effect: Effect[A, Exception, R]
 
 
 @dataclass(frozen=True, init=False)
 class Abilities(Generic[A]):
+    """Wraps ability instances and provides them to effects during effect interpretation."""
+
     _ability_cache: dict[str, A]
     abilities: tuple[A, ...]
 
@@ -41,6 +55,15 @@ class Abilities(Generic[A]):
         object.__setattr__(self, "abilities", abilities)
 
     def add(self, ability: A2) -> "Abilities[A | A2]":
+        """
+        Add an ability that can be provided during effect interpration.
+
+        Args:
+        ----
+            ability: The ability instance to provide
+        Returns:
+            New instance of Abilities wrapping the ability.
+        """
         a = Abilities()
         ability_union = (ability, *self.abilities)
         object.__setattr__(a, "abilities", ability_union)
@@ -52,6 +75,15 @@ class Abilities(Generic[A]):
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> "Abilities[A | R]":
+        """
+        Like `Ability.add`, but for abilities that themselves require effects to provide.
+
+        Args:
+        ----
+            ability: Factory function for getting the effect
+            args: args for `ability`
+            kwargs: kwargs for `ability`
+        """
         a = Abilities()
         effect_ability = EffectAbility(self.handle(ability)(*args, **kwargs))
         ability_union = (effect_ability, *self.abilities)
@@ -59,6 +91,21 @@ class Abilities(Generic[A]):
         return cast(Abilities[A | R], a)
 
     def get_ability(self, ability_type: Type[A2]) -> A2 | None:
+        """
+        Get a wrapped ability instance by type.
+
+        Finds the most recently added ability that is a subtype of `ability_type`
+        using `isinstance`, or `None` if no such instance exists.
+
+        Args:
+        ----
+            ability_type: The ability type to find.
+
+        Returns:
+        -------
+            Most recently added instance of type `ability_type` or
+            `None` if no subclasses of `ability_type` are wrapped.
+        """
         cache_key = _cache_key(ability_type)
         if cache_key in self._ability_cache:
             return self._ability_cache[cache_key]  # type: ignore
@@ -105,6 +152,18 @@ class Abilities(Generic[A]):
     def handle(
         self, f: Callable[P, Effect[A | A2, E, R] | Depend[A | A2, R]]
     ) -> Callable[P, Effect[A2, E, R] | Depend[A2, R]]:
+        """
+        Handle abilities yielded by the effect returned by `f`.
+
+        Args:
+        ----
+            f: The function to handle abilities for.
+
+        Returns:
+        -------
+            f: With its abilities handled.
+        """
+
         @wraps(f)
         def decorator(
             *args: P.args, **kwargs: P.kwargs
