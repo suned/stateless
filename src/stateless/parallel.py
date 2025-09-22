@@ -7,7 +7,6 @@ from multiprocessing.managers import BaseManager, PoolProxy  # type: ignore
 from multiprocessing.pool import ThreadPool
 from types import TracebackType
 from typing import (
-    TYPE_CHECKING,
     Callable,
     Generic,
     Literal,
@@ -22,12 +21,10 @@ from typing import (
 import cloudpickle  # type: ignore
 from typing_extensions import Never
 
-from stateless.effect import Depend, Effect, Success, run, throw
+from stateless.abilities import Abilities  # pragma: no cover
+from stateless.constants import PARALLEL_SENTINEL
+from stateless.effect import Depend, Effect, Success, catch_all, run, throw
 from stateless.errors import MissingAbilityError
-
-if TYPE_CHECKING:
-    from stateless.abilities import Abilities  # pragma: no cover
-
 
 A = TypeVar("A")
 E = TypeVar("E", bound=Exception)
@@ -57,12 +54,9 @@ def _run_task(payload: bytes) -> bytes:
     ability = abilities.get_ability(Parallel)
     if ability is None:
         return cloudpickle.dumps(MissingAbilityError(Parallel))  # type: ignore
-    effect = abilities.handle(task.f)(*task.args, **task.kwargs)
+    effect = abilities.handle(catch_all(task.f))(*task.args, **task.kwargs)
     with ability:
-        try:
-            result = run(effect)  # type: ignore
-        except Exception as e:
-            result = e
+        result = run(effect)  # type: ignore
         return cloudpickle.dumps(result)  # type: ignore
 
 
@@ -240,11 +234,10 @@ class Parallel:
         self.thread_pool.__enter__()
 
         def _run_task(task: Task[object, Exception, R]) -> R | Exception:
-            effect = abilities.handle(task.f)(*task.args, **task.kwargs)
-            try:
-                return run(effect)
-            except Exception as e:
-                return e
+            # catch_all because all yielded errors must be returned to the
+            # main thread in order to be handled
+            effect = abilities.handle(catch_all(task.f))(*task.args, **task.kwargs)
+            return run(effect)
 
         return self.thread_pool.map(_run_task, tasks)
 
@@ -504,9 +497,12 @@ def parallel(  # type: ignore
         The results of the tasks.
 
     """
-    runtime: "Abilities[Parallel]" = cast("Abilities[Parallel]", (yield Parallel))
-    ability = runtime.get_ability(Parallel)
-    result = ability.run(runtime, tasks)  # type: ignore
+    ability_instances = cast("tuple[object, ...]", (yield PARALLEL_SENTINEL))  # type: ignore
+    abilities = Abilities(*ability_instances)
+    parallel = abilities.get_ability(Parallel)
+    if not parallel:
+        raise MissingAbilityError(Parallel)
+    result = parallel.run(abilities, tasks)
     if isinstance(result, Exception):
         return (yield from throw(result))
     else:

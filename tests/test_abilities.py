@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
 from pytest import raises
-from stateless import Abilities, Depend, Effect, depend, run
+from stateless import Abilities, Depend, Effect, depend, parallel, process, run
 from stateless.errors import MissingAbilityError
+from stateless.parallel import Parallel
 from typing_extensions import Never
 
 from tests.utils import run_with_abilities
@@ -96,3 +97,51 @@ def test_use_effect() -> None:
 
     abilities = Abilities().add("ability").add_effect(effect)
     assert run_with_abilities(depend(bytes), abilities) == b"ability"
+
+
+def test_multiple_abilities_with_parallel() -> None:
+    def f() -> Depend[str | int, tuple[str, int]]:
+        s = yield from depend(str)
+        i = yield from depend(int)
+        return (s, i)
+
+    def g() -> Depend[str | int | Parallel, tuple[str, int]]:
+        result, *_ = yield from parallel(process(f)())
+        return result
+
+    with Parallel() as p:
+        outer = Abilities().add(0)
+        inner = Abilities().add("s").add(p)
+        effect = outer.handle(inner.handle(g))()
+        assert run(effect) == ("s", 0)
+
+
+def test_ability_order_with_multiple_abilities() -> None:
+    def f() -> Depend[str, str]:
+        result = yield from depend(str)
+        return result
+
+    outer = Abilities().add("outer")
+    inner = Abilities().add("inner")
+
+    effect = outer.handle(inner.handle(f))()
+    assert run(effect) == "inner"
+
+
+def test_multiple_abilities_without_direct_composition() -> None:
+    def f() -> Depend[str | int, tuple[str, int]]:
+        s = yield from depend(str)
+        i = yield from depend(int)
+        return (s, i)
+
+    def h() -> Depend[Parallel | str | int, tuple[str, int]]:
+        result, *_ = yield from parallel(process(f)())
+        return result
+
+    def g() -> Depend[Parallel | str, tuple[str, int]]:
+        abilities = Abilities(0)
+        s, i = yield from abilities.handle(h)()  # type: ignore
+        return (s, i)
+
+    with Parallel() as p:
+        assert run(Abilities("s", p).handle(g)()) == ("s", 0)

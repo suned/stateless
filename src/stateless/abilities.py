@@ -6,9 +6,9 @@ from typing import Callable, Generic, ParamSpec, Type, TypeVar, cast, overload
 
 from typing_extensions import Never
 
+from stateless.constants import PARALLEL_SENTINEL
 from stateless.effect import Depend, Effect, Success, Try, run
 from stateless.errors import MissingAbilityError
-from stateless.parallel import Parallel
 
 A = TypeVar("A", covariant=True)
 A2 = TypeVar("A2")
@@ -169,10 +169,10 @@ class Abilities(Generic[A]):
             *args: P.args, **kwargs: P.kwargs
         ) -> Effect[A2, E, R] | Depend[A2, R]:
             effect = f(*args, **kwargs)
-            ability_or_error = next(effect)
+            try:
+                ability_or_error = next(effect)
 
-            while True:
-                try:
+                while True:
                     match ability_or_error:
                         case None:
                             # special case for implementation
@@ -180,19 +180,20 @@ class Abilities(Generic[A]):
                             ability_or_error = effect.send(None)
                         case Exception() as error:
                             ability_or_error = effect.throw(error)
-                        case ability_type if ability_type is Parallel:
-                            ability_or_error = effect.send(self)
+                        case ability_type if ability_type is PARALLEL_SENTINEL:
+                            other_abilities = yield ability_type  # type: ignore
+                            effect.send((*self.abilities, *other_abilities))
                         case ability_type:
                             ability = self.get_ability(ability_type)
                             if ability is None:
-                                # Pass up the dependency request to
-                                # Abilitities.handle calls higher up the stack
+                                # yield the ability to `run` to trigger
+                                # missing ability error
                                 try:
                                     ability = yield ability_type  # type: ignore
                                 except MissingAbilityError as e:
                                     effect.throw(e)
                             ability_or_error = effect.send(ability)
-                except StopIteration as e:
-                    return cast(R, e.value)
+            except StopIteration as e:
+                return cast(R, e.value)
 
         return decorator

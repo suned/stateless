@@ -147,7 +147,7 @@ def test_run_task(abilities: Abilities[Parallel]) -> None:
     assert cloudpickle.loads(result) == "done"
 
 
-def test_run_task_missing_abilitiy() -> None:
+def test_run_task_missing_ability() -> None:
     def f() -> Success[str]:
         return success("done")
 
@@ -158,12 +158,8 @@ def test_run_task_missing_abilitiy() -> None:
     assert error.args == (Parallel,)
 
 
-def test_run_task_with_exception(abilities: Abilities[Parallel]) -> None:
-    def f() -> Effect[object, Exception, None]:
-        raise ValueError("whoops")
-
-    payload = cloudpickle.dumps((abilities, thread(f)()))
-    result = _run_task(payload)
-    error = cloudpickle.loads(result)
-    assert isinstance(error, ValueError)
-    assert error.args == ("whoops",)
+def test_parallel_missing_ability() -> None:
+    task = process(lambda: success("done!"))()
+    with raises(MissingAbilityError) as info:
+        run_with_abilities(parallel(task), Abilities())
+    assert info.value.args == (Parallel,)

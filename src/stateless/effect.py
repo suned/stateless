@@ -9,6 +9,7 @@ from typing import Any, Callable, Generic, Type, TypeVar, cast, overload
 
 from typing_extensions import Never, ParamSpec, TypeAlias
 
+from stateless.constants import PARALLEL_SENTINEL
 from stateless.errors import MissingAbilityError
 
 R = TypeVar("R")
@@ -50,6 +51,8 @@ def run(effect: Try[Exception, R]) -> R:
                 case None:
                     # special case for stateless.success
                     effect.send(None)
+                case sentinel if sentinel == PARALLEL_SENTINEL:
+                    effect.send(())
                 case Exception() as error:
                     # at this point this is an exception
                     # not handled with stateless.catch anywhere
