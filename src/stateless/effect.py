@@ -65,7 +65,7 @@ def run(effect: Try[Exception, R]) -> R:
 
 @dataclass(frozen=True)
 class SuccessEffect(Success[R]):
-    """Success effectthat just returns a constant."""
+    """Success effect that just returns a constant."""
 
     value: R
 
