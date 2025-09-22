@@ -69,13 +69,26 @@ class SuccessEffect(Success[R]):
 
     value: R
 
-    def send(self, _: Any) -> Never:
+    def send(self, _: object) -> Never:
         """Send an ability to this effect that is ignored."""
         raise StopIteration(self.value)
 
-    def throw(self, value: Exception, /) -> Never:  # type: ignore
-        """Throw an exception in this effect."""
-        raise value
+    if sys.version_info < (3, 12):  # pragma: no cover
+
+        def throw(
+            self,
+            exc_type: Type[BaseException] | BaseException,
+            error: BaseException | object | None = None,
+            exc_tb: TracebackType | None = None,
+            /,
+        ) -> Never:
+            """Throw an exception in this effect."""
+            raise exc_type
+    else:
+
+        def throw(self, value: Exception, /) -> Never:  # type: ignore
+            """Throw an exception in this effect."""
+            raise value
 
 
 def success(result: R) -> Success[R]:

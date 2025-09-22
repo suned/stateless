@@ -17,7 +17,7 @@ from stateless import (
     throw,
     throws,
 )
-from stateless.effect import Depend
+from stateless.effect import Depend, SuccessEffect
 from stateless.errors import MissingAbilityError
 from stateless.functions import RetryError
 from stateless.schedule import Recurs, Spaced
@@ -215,3 +215,9 @@ def test_memoize_on_handled_error() -> None:
             return "done"
 
     assert run(f()) == "done"
+
+
+def test_success_throw() -> None:
+    effect = SuccessEffect("hi")
+    with raises(ValueError, match="oops"):
+        effect.throw(ValueError("oops"))
