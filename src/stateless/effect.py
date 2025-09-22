@@ -43,14 +43,12 @@ def run(effect: Try[Exception, R]) -> R:
     Returns:
     -------
         The result of running `effect`.
+
     """
     while True:
         try:
             ability_or_error = next(effect)
             match ability_or_error:
-                case None:
-                    # special case for stateless.success
-                    effect.send(None)
                 case sentinel if sentinel == PARALLEL_SENTINEL:
                     effect.send(())
                 case Exception() as error:
@@ -63,6 +61,21 @@ def run(effect: Try[Exception, R]) -> R:
                     effect.throw(MissingAbilityError(ability_type))
         except StopIteration as e:
             return cast(R, e.value)
+
+
+@dataclass(frozen=True)
+class SuccessEffect(Success[R]):
+    """Success effectthat just returns a constant."""
+
+    value: R
+
+    def send(self, _: Any) -> Never:
+        """Send an ability to this effect that is ignored."""
+        raise StopIteration(self.value)
+
+    def throw(self, value: Exception, /) -> Never:  # type: ignore
+        """Throw an exception in this effect."""
+        raise value
 
 
 def success(result: R) -> Success[R]:
@@ -78,8 +91,7 @@ def success(result: R) -> Success[R]:
         An effect that returns the value.
 
     """
-    yield None  # type: ignore
-    return result
+    return SuccessEffect(result)
 
 
 def throw(reason: E) -> Try[E, Never]:  # type: ignore
@@ -153,6 +165,7 @@ class Catch(Generic[E]):
             f: The function to catch effects for
         Return:
             `f`, but returning an effect where errors are included in the result type.
+
         """
 
         @wraps(f)
@@ -193,6 +206,7 @@ def catch(*errors: Type[E]) -> Catch[E]:
     Returns:
     -------
         Decorator function where `errors` are returned as the result type of effects.
+
     """
     return Catch(*errors)
 
@@ -206,6 +220,7 @@ def catch_all(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
         f: The function to catch effects for
     Returns:
         `f`, but returning an effect where errors are included in the result type.
+
     """
     return Catch(Exception)(f)  # type: ignore
 

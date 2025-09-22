@@ -63,6 +63,7 @@ class Abilities(Generic[A]):
             ability: The ability instance to provide
         Returns:
             New instance of Abilities wrapping the ability.
+
         """
         a = Abilities()
         ability_union = (ability, *self.abilities)
@@ -83,6 +84,7 @@ class Abilities(Generic[A]):
             ability: Factory function for getting the effect
             args: args for `ability`
             kwargs: kwargs for `ability`
+
         """
         a = Abilities()
         effect_ability = EffectAbility(self.handle(ability)(*args, **kwargs))
@@ -105,6 +107,7 @@ class Abilities(Generic[A]):
         -------
             Most recently added instance of type `ability_type` or
             `None` if no subclasses of `ability_type` are wrapped.
+
         """
         cache_key = _cache_key(ability_type)
         if cache_key in self._ability_cache:
@@ -162,6 +165,7 @@ class Abilities(Generic[A]):
         Returns:
         -------
             f: With its abilities handled.
+
         """
 
         @wraps(f)
@@ -174,10 +178,6 @@ class Abilities(Generic[A]):
 
                 while True:
                     match ability_or_error:
-                        case None:
-                            # special case for implementation
-                            # of `stateless.success`
-                            ability_or_error = effect.send(None)
                         case Exception() as error:
                             ability_or_error = effect.throw(error)
                         case ability_type if ability_type is PARALLEL_SENTINEL:
