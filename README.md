@@ -125,7 +125,7 @@ from stateless import Effect
 
 
 class Ability[A]:
-    def add[A2](self, ability: A2) -> Runtime[A | A2]:
+    def add[A2](self, ability: A2) -> Ability[A | A2]:
         ...
 
     def handle[**P, A2, E: Exception, R](self, Callable[P, Effect[A | A2, E, R]]) -> Callable[P, Effect[A2, E, R]]:
@@ -682,19 +682,7 @@ with Parallel() as ability:
 In this example the first `sing` invocation will be run in a separate thread because its wrapped with `thread`, and the second `sing` invocation will be run in a separate process because it's wrapped by `process`. Note that although `thread` and `process` are strictly speaking decorators, they don't return `stateless.Effect` instances. For this reason, it's probably not a good idea to use them as `@thread` or `@process`, since this
 reduces the re-usability of the decorated function. Use them at the call site as shown in the example instead.
 
-`stateless.parallel.Task` _does_ however implement `__iter__` to return the result of the decorated function, so you _can_ yield from them if necessary:
 
-```python
-from stateless import Success, thread
-
-
-def sing_more() -> Success[str]:
-    # This is rather pointless,
-    # but helps you out if you for some
-    # reason have used @thread instead of thread(...)
-    note = yield from thread(sing)()
-    return note * 2
-```
 If you need more control over the resources managed by `stateless.parallel.Parallel`, you can pass them as arguments:
 ```python
 from multiprocessing.pool import ThreadPool
@@ -720,7 +708,7 @@ Note that if you pass in in the thread pool and proxy pool as arguments, `statel
 You can of course subclass `stateless.parallel.Parallel` to change the interpretation of this ability (for example in tests). The two main functions you'll want to override is `run_thread_tasks` and `run_cpu_tasks`:
 
 ```python
-from stateless import Runtime, Effect
+from stateless import Abilities, Effect, run
 from stateless.parallel import Parallel, Task
 
 
@@ -729,14 +717,14 @@ class MockParallel(Parallel):
         pass
 
     def run_cpu_tasks(self,
-                 runtime: Runtime[object],
-                 tasks: Sequence[Task[object, Exception, object]]) -> Tuple[object, ...]:
+                      abilities: Abilities[object],
+                      tasks: Sequence[Task[object, Exception, object]]) -> Tuple[object, ...]:
         return tuple(runtime.run(iter(task)) for task in tasks)
 
     def run_thread_tasks(self
-                    runtime: Runtime[object],
-                    effects: Sequence[Effect[object, Exception, object]]) -> Tuple[object, ...]:
-        return tuple(runtime.run(iter(task)) for task in tasks)
+                         abilities: Abilities[object],
+                         effects: Sequence[Effect[object, Exception, object]]) -> Tuple[object, ...]:
+        return tuple(run(iter(task)) for task in tasks)
 ```
 ## Repeating and Retrying Effects
 
