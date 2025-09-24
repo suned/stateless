@@ -280,7 +280,7 @@ from stateless import Abilities, run
 
 abilities = Abilities().add(Files()).add(Console())
 effect = abilities.handle(print_file)('foo.txt')
-runtime.run(effect)
+run(effect)
 ```
 
 `Abilities` also allows us to partially provide abilities for an effect:
@@ -719,12 +719,12 @@ class MockParallel(Parallel):
     def run_cpu_tasks(self,
                       abilities: Abilities[object],
                       tasks: Sequence[Task[object, Exception, object]]) -> Tuple[object, ...]:
-        return tuple(runtime.run(iter(task)) for task in tasks)
+        return tuple(run(abilities.handle(task.f)(*task.args, **task.kwargs) for task in tasks)
 
     def run_thread_tasks(self
                          abilities: Abilities[object],
                          effects: Sequence[Effect[object, Exception, object]]) -> Tuple[object, ...]:
-        return tuple(run(iter(task)) for task in tasks)
+        return tuple(run(abilities.handle(task.f)(*task.args, **task.kwargs) for task in tasks)
 ```
 ## Repeating and Retrying Effects
 
