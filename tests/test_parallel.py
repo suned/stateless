@@ -5,17 +5,21 @@ from typing import Iterator
 
 import cloudpickle  # type: ignore
 from pytest import fixture, raises
-from stateless import Depend, Effect, Runtime, Success, catch, success, throws
+from stateless import Depend, Effect, Success, catch, success, throws
+from stateless.abilities import Abilities
+from stateless.errors import MissingAbilityError
 from stateless.parallel import Parallel, _run_task, parallel, process, thread
 
+from tests.utils import run_with_abilities
 
-@fixture(scope="module", name="runtime")
-def runtime_fixture() -> Iterator[Runtime[Parallel]]:
+
+@fixture(scope="module", name="abilities")
+def abilities_fixture() -> Iterator[Abilities[Parallel]]:
     with Parallel() as p:
-        yield Runtime().use(p)
+        yield Abilities().add(p)
 
 
-def test_error_handling(runtime: Runtime[Parallel]) -> None:
+def test_error_handling(abilities: Abilities[Parallel]) -> None:
     @throws(ValueError)
     def f() -> Success[str]:
         raise ValueError("error")
@@ -24,12 +28,12 @@ def test_error_handling(runtime: Runtime[Parallel]) -> None:
         result = yield from parallel(thread(f)())
         return result
 
-    result = runtime.run(catch(g)())
+    result = run_with_abilities(catch(ValueError)(g)(), abilities)
     assert isinstance(result, ValueError)
     assert result.args == ("error",)
 
 
-def test_process_error_handling(runtime: Runtime[Parallel]) -> None:
+def test_process_error_handling(abilities: Abilities[Parallel]) -> None:
     @throws(ValueError)
     def f() -> Success[str]:
         raise ValueError("error")
@@ -38,18 +42,18 @@ def test_process_error_handling(runtime: Runtime[Parallel]) -> None:
         result = yield from parallel(process(f)())
         return result
 
-    result = runtime.run(catch(g)())
+    result = run_with_abilities(catch(ValueError)(g)(), abilities)
     assert isinstance(result, ValueError)
     assert result.args == ("error",)
 
 
-def test_unhandled_errors(runtime: Runtime[Parallel]) -> None:
+def test_unhandled_errors(abilities: Abilities[Parallel]) -> None:
     def f() -> Success[str]:
         raise ValueError("error")
 
     with raises(ValueError, match="error"):
         effect = parallel(thread(f)())
-        runtime.run(effect)
+        run_with_abilities(effect, abilities)
 
 
 def test_pickling() -> None:
@@ -74,23 +78,23 @@ def test_pickling() -> None:
         assert p3._thread_pool is not None
 
 
-def test_cpu_effect(runtime: Runtime[Parallel]) -> None:
+def test_cpu_effect(abilities: Abilities[Parallel]) -> None:
     @process
     def f() -> Success[str]:
         return success("done")
 
     effect = parallel(f())
-    result = runtime.run(effect)
+    result = run_with_abilities(effect, abilities)
     assert result == ("done",)
 
 
-def test_io_effect(runtime: Runtime[Parallel]) -> None:
+def test_io_effect(abilities: Abilities[Parallel]) -> None:
     @thread
     def f() -> Success[str]:
         return success("done")
 
     effect = parallel(f())
-    result = runtime.run(effect)
+    result = run_with_abilities(effect, abilities)
     assert result == ("done",)
 
 
@@ -98,7 +102,7 @@ def ping() -> str:
     return "pong"
 
 
-def test_yield_from_parallel(runtime: Runtime[Parallel]) -> None:
+def test_yield_from_parallel(abilities: Abilities[Parallel]) -> None:
     def f() -> Success[str]:
         return success("done")
 
@@ -106,7 +110,7 @@ def test_yield_from_parallel(runtime: Runtime[Parallel]) -> None:
         result = yield from parallel(thread(f)(), process(f)())
         return result
 
-    result = runtime.run(g())
+    result = run_with_abilities(g(), abilities)
     assert result == ("done", "done")
 
 
@@ -120,10 +124,10 @@ def test_passed_in_resources() -> None:
         assert pool.apply(ping) == "pong"
 
 
-def test_use_before_with() -> None:
+def test_use_before_with(abilities: Abilities[Parallel]) -> None:
     task = thread(success)("done")
     with raises(RuntimeError, match="Parallel must be used as a context manager"):
-        Runtime().use(Parallel()).run(parallel(task))  # type: ignore
+        run_with_abilities(parallel(task), Abilities(Parallel()))
 
 
 def test_use_after_with() -> None:
@@ -131,13 +135,31 @@ def test_use_after_with() -> None:
         pass
 
     with raises(RuntimeError, match="Parallel context manager has already exited"):
-        Runtime().use(p).run(parallel(thread(success)("done")))  # type: ignore
+        run_with_abilities(parallel(thread(success)("done")), Abilities(p))
 
 
-def test_run_task(runtime: Runtime[Parallel]) -> None:
+def test_run_task(abilities: Abilities[Parallel]) -> None:
     def f() -> Success[str]:
         return success("done")
 
-    payload = cloudpickle.dumps((runtime, thread(f)()))
+    payload = cloudpickle.dumps((abilities, thread(f)()))
     result = _run_task(payload)
     assert cloudpickle.loads(result) == "done"
+
+
+def test_run_task_missing_ability() -> None:
+    def f() -> Success[str]:
+        return success("done")
+
+    payload = cloudpickle.dumps((Abilities(), thread(f)()))
+    result = _run_task(payload)
+    error = cloudpickle.loads(result)
+    assert isinstance(error, MissingAbilityError)
+    assert error.args == (Parallel,)
+
+
+def test_parallel_missing_ability() -> None:
+    task = process(lambda: success("done!"))()
+    with raises(MissingAbilityError) as info:
+        run_with_abilities(parallel(task), Abilities())
+    assert info.value.args == (Parallel,)

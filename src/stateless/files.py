@@ -17,6 +17,7 @@ class Files:
         Returns:
         -------
             The contents of the file.
+
         """
         with open(path) as f:
             return f.read()
@@ -34,6 +35,7 @@ def read_file(path: str) -> Depend[Files, str]:
     Returns:
     -------
         The contents of the file as an effect.
+
     """
     files: Files = yield Files
     return files.read_file(path)

@@ -14,6 +14,7 @@ class Console:
         Args:
         ----
             content: The content to print.
+
         """
         print(content)
 
@@ -27,6 +28,7 @@ class Console:
         Returns:
         -------
             The line read from stdin.
+
         """
         return input(prompt)
 
@@ -41,6 +43,7 @@ def print_line(content: Any) -> Depend[Console, None]:
     Returns:
     -------
         A Depend that prints the given content.
+
     """
     console = yield Console
     console.print(content)
@@ -56,6 +59,7 @@ def read_line(prompt: str = "") -> Depend[Console, str]:
     Returns:
     -------
         A Depend that reads a line from stdin.
+
     """
     console: Console = yield Console
     return console.input(prompt)

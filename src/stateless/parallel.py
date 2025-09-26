@@ -7,7 +7,6 @@ from multiprocessing.managers import BaseManager, PoolProxy  # type: ignore
 from multiprocessing.pool import ThreadPool
 from types import TracebackType
 from typing import (
-    TYPE_CHECKING,
     Callable,
     Generic,
     Literal,
@@ -22,11 +21,10 @@ from typing import (
 import cloudpickle  # type: ignore
 from typing_extensions import Never
 
-from stateless.effect import Depend, Effect, Success, throw
-
-if TYPE_CHECKING:
-    from stateless.runtime import Runtime  # pragma: no cover
-
+from stateless.abilities import Abilities  # pragma: no cover
+from stateless.constants import PARALLEL_SENTINEL
+from stateless.effect import Depend, Effect, Success, catch_all, run, throw
+from stateless.errors import MissingAbilityError
 
 A = TypeVar("A")
 E = TypeVar("E", bound=Exception)
@@ -47,23 +45,22 @@ class Task(Generic[A, E, R]):
     kwargs: dict[str, object]
     use_threads: bool
 
-    def __iter__(self) -> Effect[A, E, R]:
-        """Iterate the effect wrapped by this task."""
-        return self.f(*self.args, **self.kwargs)
-
 
 def _run_task(payload: bytes) -> bytes:
-    runtime, task = cast(
-        tuple["Runtime[Parallel]", Task[object, Exception, object]],
+    abilities, task = cast(
+        tuple["Abilities[Parallel]", Task[object, Exception, object]],
         cloudpickle.loads(payload),
     )
-    ability: Parallel = runtime.get_ability(Parallel)
+    ability = abilities.get_ability(Parallel)
+    if ability is None:
+        return cloudpickle.dumps(MissingAbilityError(Parallel))  # type: ignore
+    effect = abilities.handle(catch_all(task.f))(*task.args, **task.kwargs)
     with ability:
-        result = runtime.run(iter(task), return_errors=True)  # type: ignore
+        result = run(effect)  # type: ignore
         return cloudpickle.dumps(result)  # type: ignore
 
 
-class SuccessTask(Task[Never, Never, R]):
+class SuccessTask(Task["Parallel", Never, R]):
     """A task that can be run in parallel.
 
     Captures arguments to functions that return effects
@@ -218,7 +215,7 @@ class Parallel:
 
     def run_thread_tasks(
         self,
-        runtime: "Runtime[object]",
+        abilities: "Abilities[object]",
         tasks: Sequence[Task[object, Exception, object]],
     ) -> Sequence[object]:
         """
@@ -226,7 +223,7 @@ class Parallel:
 
         Args:
         ----
-            runtime: The runtime to run the tasks in.
+            abilities: The abilities to run the tasks with.
             tasks: The tasks to run.
 
         Returns:
@@ -235,13 +232,18 @@ class Parallel:
 
         """
         self.thread_pool.__enter__()
-        return self.thread_pool.map(
-            lambda task: runtime.run(iter(task), return_errors=True), tasks
-        )
+
+        def _run_task(task: Task[object, Exception, R]) -> R | Exception:
+            # catch_all because all yielded errors must be returned to the
+            # main thread in order to be handled
+            effect = abilities.handle(catch_all(task.f))(*task.args, **task.kwargs)
+            return run(effect)
+
+        return self.thread_pool.map(_run_task, tasks)
 
     def run_process_tasks(
         self,
-        runtime: "Runtime[object]",
+        abilities: "Abilities[object]",
         tasks: Sequence[Task[object, Exception, object]],
     ) -> Sequence[object]:
         """
@@ -249,7 +251,7 @@ class Parallel:
 
         Args:
         ----
-            runtime: The runtime to run the tasks in.
+            abilities: The abilities to run the tasks with.
             tasks: The tasks to run.
 
         Returns:
@@ -257,14 +259,14 @@ class Parallel:
             The results of the tasks.
 
         """
-        payloads: list[bytes] = [cloudpickle.dumps((runtime, task)) for task in tasks]
+        payloads: list[bytes] = [cloudpickle.dumps((abilities, task)) for task in tasks]
         return [
             cloudpickle.loads(result) for result in self.pool.map(_run_task, payloads)
         ]
 
     def run(
         self,
-        runtime: "Runtime[object]",
+        abilities: "Abilities[object]",
         tasks: tuple[Task[object, Exception, object], ...],
     ) -> tuple[object, ...] | Exception:
         """
@@ -272,7 +274,7 @@ class Parallel:
 
         Args:
         ----
-            runtime: The runtime to run the tasks in.
+            abilities: The abilities to run the tasks with.
             tasks: The tasks to run.
 
         Returns:
@@ -290,7 +292,7 @@ class Parallel:
 
         if thread_tasks_and_indices:
             thread_indices, thread_tasks = zip(*thread_tasks_and_indices)
-            thread_results = self.run_thread_tasks(runtime, thread_tasks)
+            thread_results = self.run_thread_tasks(abilities, thread_tasks)
             for result in thread_results:
                 if isinstance(result, Exception):
                     return result
@@ -304,7 +306,7 @@ class Parallel:
 
         if cpu_tasks_and_indices:
             cpu_indices, cpu_tasks = zip(*cpu_tasks_and_indices)
-            cpu_results = self.run_process_tasks(runtime, cpu_tasks)
+            cpu_results = self.run_process_tasks(abilities, cpu_tasks)
             for result in cpu_results:
                 if isinstance(result, Exception):
                     return result
@@ -495,9 +497,12 @@ def parallel(  # type: ignore
         The results of the tasks.
 
     """
-    runtime: "Runtime[Parallel]" = cast("Runtime[Parallel]", (yield Parallel))
-    ability = runtime.get_ability(Parallel)
-    result = ability.run(runtime, tasks)  # type: ignore
+    ability_instances = cast("tuple[object, ...]", (yield PARALLEL_SENTINEL))  # type: ignore
+    abilities = Abilities(*ability_instances)
+    parallel = abilities.get_ability(Parallel)
+    if not parallel:
+        raise MissingAbilityError(Parallel)
+    result = parallel.run(abilities, tasks)
     if isinstance(result, Exception):
         return (yield from throw(result))
     else:

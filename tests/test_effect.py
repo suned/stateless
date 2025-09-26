@@ -3,8 +3,8 @@ from typing import NoReturn as Never
 
 from pytest import raises
 from stateless import (
+    Abilities,
     Effect,
-    Runtime,
     Success,
     Try,
     catch,
@@ -12,13 +12,18 @@ from stateless import (
     memoize,
     repeat,
     retry,
+    run,
     success,
     throw,
     throws,
 )
+from stateless.effect import Depend, SuccessEffect
+from stateless.errors import MissingAbilityError
 from stateless.functions import RetryError
 from stateless.schedule import Recurs, Spaced
 from stateless.time import Time
+
+from tests.utils import run_with_abilities
 
 
 class MockTime(Time):
@@ -29,13 +34,15 @@ class MockTime(Time):
 def test_throw() -> None:
     effect = throw(RuntimeError("oops"))
     with raises(RuntimeError, match="oops"):
-        Runtime().run(effect)
+        run(effect)
 
 
 def test_catch() -> None:
-    effect: Success[RuntimeError] = catch(lambda: throw(RuntimeError("oops")))()
+    effect: Success[RuntimeError] = catch(RuntimeError)(
+        lambda: throw(RuntimeError("oops"))
+    )()
 
-    error = Runtime().run(effect)
+    error = run(effect)
 
     assert isinstance(error, RuntimeError)
     assert str(error) == "oops"
@@ -46,30 +53,30 @@ def test_catch_with_errors() -> None:
         RuntimeError, ZeroDivisionError
     )(lambda: throw(RuntimeError("oops")))()
 
-    error = Runtime().run(effect)
+    error = run(effect)
 
     assert isinstance(error, RuntimeError)
     assert str(error) == "oops"
 
 
 def test_catch_with_nothing() -> None:
-    effect: Try[RuntimeError, None] = catch()(lambda: throw(RuntimeError("oops")))()  # type: ignore
+    effect: Try[RuntimeError, None] = catch()(lambda: throw(RuntimeError("oops")))()
     with raises(RuntimeError, match="oops"):
-        Runtime().run(effect)
+        run(effect)
 
 
 def test_catch_with_wrong_error() -> None:
-    effect: Try[ZeroDivisionError, ValueError] = catch(ValueError)(  # type: ignore
+    effect: Try[ZeroDivisionError, ValueError] = catch(ValueError)(
         lambda: throw(ZeroDivisionError())
     )()
 
     with raises(ZeroDivisionError):
-        Runtime().run(effect)
+        run(effect)
 
 
 def test_catch_success() -> None:
-    effect = catch(lambda: success(42))()
-    value = Runtime().run(effect)
+    effect = catch(Exception)(lambda: success(42))()
+    value = run(effect)
 
     assert value == 42
 
@@ -79,7 +86,7 @@ def test_catch_unhandled() -> None:
         raise ValueError("oops")
 
     with raises(ValueError, match="oops"):
-        Runtime().run(catch(effect)())
+        run(catch(ValueError)(effect)())
 
 
 def test_throws() -> None:
@@ -88,12 +95,28 @@ def test_throws() -> None:
         raise ValueError("oops")
 
     with raises(ValueError, match="oops"):
-        Runtime().run(effect())
+        run(effect())
 
 
 def test_depend() -> None:
     effect = depend(int)
-    assert Runtime().use(0).run(effect) == 0
+    assert run_with_abilities(effect, Abilities(0)) == 0
+
+
+def test_depend_missing_ability() -> None:
+    def effect() -> Depend[int, int]:
+        return (yield from depend(int))
+
+    with raises(MissingAbilityError) as info:
+        run(effect())  # type: ignore
+
+    frame = info.traceback[0]
+    assert str(frame.path) == __file__
+    assert frame.lineno == test_depend_missing_ability.__code__.co_firstlineno + 4
+
+    frame = info.traceback[2]
+    assert str(frame.path) == __file__
+    assert frame.lineno == test_depend_missing_ability.__code__.co_firstlineno + 1
 
 
 def test_repeat() -> None:
@@ -101,8 +124,7 @@ def test_repeat() -> None:
     def effect() -> Success[int]:
         return success(42)
 
-    time: Time = MockTime()
-    assert Runtime().use(time).run(effect()) == (42, 42)
+    assert run_with_abilities(effect(), Abilities(MockTime())) == (42, 42)
 
 
 def test_repeat_on_error() -> None:
@@ -110,9 +132,8 @@ def test_repeat_on_error() -> None:
     def effect() -> Try[RuntimeError, Never]:
         return throw(RuntimeError("oops"))
 
-    time: Time = MockTime()
     with raises(RuntimeError, match="oops"):
-        Runtime().use(time).run(effect())
+        run_with_abilities(effect(), Abilities(MockTime()))
 
 
 def test_retry() -> None:
@@ -120,9 +141,8 @@ def test_retry() -> None:
     def effect() -> Try[RuntimeError, Never]:
         return throw(RuntimeError("oops"))
 
-    time: Time = MockTime()
     with raises(RuntimeError, match="oops"):
-        Runtime().use(time).run(effect())
+        run_with_abilities(effect(), Abilities(MockTime()))
 
 
 def test_retry_on_eventual_success() -> None:
@@ -136,8 +156,7 @@ def test_retry_on_eventual_success() -> None:
         counter += 1
         return throw(RuntimeError("oops"))
 
-    time: Time = MockTime()
-    assert Runtime().use(time).run(effect()) == 42
+    assert run_with_abilities(effect(), Abilities(MockTime())) == 42
 
 
 def test_retry_on_failure() -> None:
@@ -145,9 +164,8 @@ def test_retry_on_failure() -> None:
     def effect() -> Effect[Never, RuntimeError, int]:
         return throw(RuntimeError("oops"))
 
-    time: Time = MockTime()
     with raises(RetryError):
-        Runtime().use(time).run(effect())
+        run_with_abilities(effect(), Abilities(MockTime()))
 
 
 def test_memoize() -> None:
@@ -167,7 +185,7 @@ def test_memoize() -> None:
         i4 = yield from e
         return (i1, i2, i3, i4)
 
-    assert Runtime().run(g()) == (1, 2, 1, 1)
+    assert run(g()) == (1, 2, 1, 1)
     assert counter == 2
 
 
@@ -185,7 +203,7 @@ def test_memoize_on_unhandled_error() -> None:
         return throw(RuntimeError("oops"))
 
     with raises(RuntimeError, match="oops"):
-        Runtime().run(f())
+        run(f())
 
 
 def test_memoize_on_handled_error() -> None:
@@ -196,4 +214,10 @@ def test_memoize_on_handled_error() -> None:
         except RuntimeError:
             return "done"
 
-    assert Runtime().run(f()) == "done"
+    assert run(f()) == "done"
+
+
+def test_success_throw() -> None:
+    effect = SuccessEffect("hi")
+    with raises(ValueError, match="oops"):
+        effect.throw(ValueError("oops"))
