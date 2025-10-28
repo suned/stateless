@@ -3,7 +3,8 @@ from typing import Generator, Generic, Self, TypeVar
 
 from stateless.errors import MissingAbilityError
 
-T = TypeVar('T', covariant=True)
+T = TypeVar("T", covariant=True)
+
 
 @dataclass(frozen=True)
 class Ability(Generic[T]):

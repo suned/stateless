@@ -34,11 +34,11 @@ warn_return_any = true
 strict_equality = true
 disallow_any_generics = true
 
-[tool.ruff]
+[tool.ruff.lint]
 select = ["I", "F", "N", "RUF", "D"]
 ignore = ["D107", "D213", "D203", "D202", "D212"]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["D100", "D101", "D102", "D103", "D104", "D105", "D107"]
 
 
