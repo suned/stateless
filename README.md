@@ -17,14 +17,15 @@ As a result, "business logic" code never performs side-effects, which makes it e
 
 ```python
 from typing import Any, Never
-from stateless import Effect, depend, throws, catch, Abilities, run
+from stateless import Effect, Need, need, throws, catch, run
 
 
 # stateless.Effect is just an alias for:
 #
-# from typing import Type, Generator, Any
+# from typing import Generator, Any
+# from stateless import Ability
 #
-# type Effect[A, E: Exception, R] = Generator[Type[A] | E, Any, R]
+# type Effect[A: Ability, E: Exception, R] = Generator[A | E, Any, R]
 
 
 class Files:
@@ -38,28 +39,26 @@ class Console:
         print(value)
 
 
-# Effects are generators that yield "Abilities" that can be sent to the
-# generator when an effect is executed. Abilities could be anything, but will often be things that
-# handle side-effects. Here it's a class that can print to the console.
-# In other effects systems, abilities are called "effect handlers".
-def print_(value: Any) -> Effect[Console, Never, None]:
-    console = yield from depend(Console)  # depend returns abilities
+# Effects are generators that yield abilities that can handled up the call stack.
+# An example ability might be `stateless.Need` that is used for type-safe dependency injection.
+def print_(value: Any) -> Effect[Need[Console], Never, None]:
+    console = yield from need(Console)
     console.print(value)
 
 
 # Effects can yield exceptions. 'stateless.throws' will catch exceptions
 # for you and yield them to other functions so you can handle them with
 # type safety. The return type of the decorated function in this
-# example is: ´Effect[Files, OSError, str]'
+# example is: ´Effect[Need[Files], OSError, str]'
 @throws(OSError)
-def read_file(path: str) -> Effect[Files, Never, str]:
-    files = yield from depend(Files)
+def read_file(path: str) -> Effect[Need[Files], Never, str]:
+    files = yield from need(Files)
     return files.read_file(path)
 
 
 # Simple effects can be combined into complex ones by
 # depending on multiple abilities.
-def print_file(path: str) -> Effect[Files | Console, Never, None]:
+def print_file(path: str) -> Effect[Need[Files] | Need[Console], Never, None]:
     # catch will return exceptions yielded by other functions
     result = yield from catch(OSError)(read_file)(path)
     match result:
@@ -70,11 +69,11 @@ def print_file(path: str) -> Effect[Files | Console, Never, None]:
 
 
 # Effects are run using `stateless.run`.
-# Abilities are provided to effects via `Abilities.handle`
+# the `Need` ability is handled using `stateless.supply`
 # Before an effect can be executed with `run`, it must have
 # all of its abilities handled.
-abilities = Abilities().add(Files()).add(Console())
-effect = abilities.handle(print_file)('foo.txt')
+handle = supply(Files(), Console())
+effect = handle(print_file)('foo.txt')
 run(effect)
 ```
 
@@ -86,10 +85,11 @@ run(effect)
 
 
 ```python
-from typing import Any, Generator, Type
+from typing import Any, Generator
+from stateless import Ability
 
 
-type Effect[A, E: Exception, R] = Generator[Type[A] | E, Any, R]
+type Effect[A: Ability, E: Exception, R] = Generator[A | E, Any, R]
 ```
  In other words, an `Effect` is a generator that can yield classes of type `A` or exceptions of type `E`, can be sent anything, and returns results of type `R`. Let's break that down a bit further:
 

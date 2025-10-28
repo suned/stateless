@@ -3,6 +3,7 @@
 from typing import Any
 
 from stateless.effect import Depend
+from stateless.need import Need, need
 
 
 class Console:
@@ -33,7 +34,7 @@ class Console:
         return input(prompt)
 
 
-def print_line(content: Any) -> Depend[Console, None]:
+def print_line(content: Any) -> Depend[Need[Console], None]:
     """Print the given content to stdout.
 
     Args:
@@ -45,11 +46,11 @@ def print_line(content: Any) -> Depend[Console, None]:
         A Depend that prints the given content.
 
     """
-    console = yield Console
+    console = yield from need(Console)
     console.print(content)
 
 
-def read_line(prompt: str = "") -> Depend[Console, str]:
+def read_line(prompt: str = "") -> Depend[Need[Console], str]:
     """Read a line from stdin.
 
     Args:
@@ -61,5 +62,5 @@ def read_line(prompt: str = "") -> Depend[Console, str]:
         A Depend that reads a line from stdin.
 
     """
-    console: Console = yield Console
+    console: Console = yield from need(Console)
     return console.input(prompt)

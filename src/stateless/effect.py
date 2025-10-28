@@ -1,66 +1,62 @@
 """Contains the Effect type and core functions for working with effects."""
+from __future__ import annotations
 
+import asyncio
 import sys
 from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps
 from types import TracebackType
-from typing import Any, Callable, Generic, Type, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Type, TypeVar, cast, overload
 
 from typing_extensions import Never, ParamSpec, TypeAlias
 
-from stateless.constants import PARALLEL_SENTINEL
+from stateless.ability import Ability
 from stateless.errors import MissingAbilityError
 
+if TYPE_CHECKING:
+    from stateless.async_ import Async  # pragma: no cover
+
 R = TypeVar("R")
-A = TypeVar("A")
+# A is bound to Ability since if A is completely unbound
+# type inference is not possible. Specifically
+# type checkers can't distinguish between abilities
+# and errors in Effect types.
+A = TypeVar("A", bound=Ability)
 E = TypeVar("E", bound=Exception)
 P = ParamSpec("P")
 E2 = TypeVar("E2", bound=Exception)
 
-Effect: TypeAlias = Generator[Type[A] | E, Any, R]
-Depend: TypeAlias = Generator[Type[A], Any, R]
-Success: TypeAlias = Generator[Type[Never], Any, R]
-Try: TypeAlias = Generator[Type[Never] | E, Any, R]
+Effect: TypeAlias = Generator[A | E, Any, R]
+Depend: TypeAlias = Generator[A, Any, R]
+Success: TypeAlias = Generator[Never, Any, R]
+Try: TypeAlias = Generator[E, Any, R]
 
 
-class NoResultError(Exception):
-    """Raised when an effect has no result.
+async def run_async(effect: Effect[Async, Exception, R]) -> R:
+    from stateless.async_ import Async
 
-    If this error is raised to user code
-    it should be considered a bug in stateless.
-    """
-
-
-def run(effect: Try[Exception, R]) -> R:
-    """
-    Run an effect.
-
-    Args:
-    ----
-        effect: The effect to run.
-
-    Returns:
-    -------
-        The result of running `effect`.
-
-    """
-    while True:
-        try:
-            ability_or_error = next(effect)
+    try:
+        ability_or_error = next(effect)
+        while True:
             match ability_or_error:
-                case sentinel if sentinel == PARALLEL_SENTINEL:
-                    effect.send(())
+                case Async(awaitable):
+                    v = await awaitable
+                    ability_or_error = effect.send(v)
                 case Exception() as error:
                     # at this point this is an exception
                     # not handled with stateless.catch anywhere
-                    effect.throw(error)
-                case ability_type:
+                    ability_or_error = effect.throw(error)
+                case ability:
                     # At this point all abilities should be handled,
                     # so any ability request indicates a missing ability
-                    effect.throw(MissingAbilityError(ability_type))
-        except StopIteration as e:
-            return cast(R, e.value)
+                    ability_or_error = effect.throw(MissingAbilityError(ability))
+    except StopIteration as e:
+        return cast(R, e.value)
+
+
+def run(effect: Effect[Async, Exception, R]) -> R:
+    return asyncio.run(run_async(effect))
 
 
 @dataclass(frozen=True)
@@ -158,7 +154,7 @@ class Catch(Generic[E]):
         ...  # pragma: no cover
 
     @overload
-    def __call__(self, f: Callable[P, Try[E | E2, R]]) -> Callable[P, Try[E2, R]]:
+    def __call__(self, f: Callable[P, Try[E | E2, R]]) -> Callable[P, Try[E2, E | R]]:
         ...  # pragma: no cover
 
     @overload
@@ -236,26 +232,6 @@ def catch_all(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
 
     """
     return Catch(Exception)(f)  # type: ignore
-
-
-def depend(ability: Type[A]) -> Depend[A, A]:
-    """
-    Create an effect that yields an ability and returns the ability sent from the runtime.
-
-    Args:
-    ----
-        ability: The ability to yield.
-
-    Returns:
-    -------
-        An effect that yields the ability and returns the ability sent from the runtime.
-
-    """
-    try:
-        a = yield ability
-    except MissingAbilityError as e:
-        raise MissingAbilityError(*e.args) from None
-    return cast(A, a)
 
 
 def throws(
