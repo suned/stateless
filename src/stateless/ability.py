@@ -1,6 +1,5 @@
-from typing import TypeVar, Self, Generic, Generator
-
 from dataclasses import dataclass
+from typing import Generator, Generic, Self, TypeVar
 
 from stateless.errors import MissingAbilityError
 

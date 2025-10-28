@@ -18,7 +18,7 @@ ipython = "^8.17.2"
 pytest = "^7.4.3"
 pyright = "^1.1.336"
 pre-commit = "^3.5.0"
-ruff = "^0.1.6"
+ruff = "^0.14.2"
 coverage = "^7.3.2"
 toml = "^0.10.2"
 

@@ -6,7 +6,6 @@ from stateless.ability import Ability
 from stateless.effect import Depend, Effect, Success, Try
 from stateless.errors import UnhandledAbilityError
 
-
 E = TypeVar('E', bound=Exception)
 A = TypeVar('A', covariant=True, bound=Ability)
 A2 = TypeVar('A2', bound=Ability)

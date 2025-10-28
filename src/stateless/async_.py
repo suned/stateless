@@ -1,28 +1,35 @@
-from concurrent.futures.thread import ThreadPoolExecutor
-import inspect
-from typing import Awaitable, Coroutine, Any, TypeVar, overload, Generic, ParamSpec, Callable
-import cloudpickle
-from typing_extensions import Never
 import asyncio
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
-from functools import partial, wraps
+from functools import wraps
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Coroutine,
+    Generic,
+    ParamSpec,
+    TypeVar,
+    overload,
+)
+
+import cloudpickle
 
 from stateless.ability import Ability
-from stateless.effect import Depend, Effect, Success, Try, catch_all, run, throw
+from stateless.effect import Depend, Effect, Success, Try, run
 from stateless.need import Need, need
 
-
-P = ParamSpec('P')
-R = TypeVar('R')
-A = TypeVar('A', bound=Ability)
-E = TypeVar('E', bound=Exception)
-B = TypeVar('B')
+P = ParamSpec("P")
+R = TypeVar("R")
+A = TypeVar("A", bound=Ability)
+E = TypeVar("E", bound=Exception)
+B = TypeVar("B")
 
 
 @dataclass(frozen=True)
 class Task(Generic[R]):
-    future:asyncio.Future[bytes] | asyncio.Future[R]
+    future: asyncio.Future[bytes] | asyncio.Future[R]
 
     async def get_result(self) -> R:
         result = await self.future
@@ -44,12 +51,13 @@ class Async(Ability[Any]):
 class Executor:
     executor: ThreadPoolExecutor | ProcessPoolExecutor
 
-    def __init__(self, executor: ThreadPoolExecutor | ProcessPoolExecutor | None = None):
+    def __init__(
+        self, executor: ThreadPoolExecutor | ProcessPoolExecutor | None = None
+    ):
         if not executor:
             executor = ThreadPoolExecutor()
 
-        object.__setattr__(self, 'executor', executor)
-
+        object.__setattr__(self, "executor", executor)
 
     def __enter__(self):
         self.executor.__enter__()
@@ -60,21 +68,25 @@ class Executor:
 
 
 @overload
-def fork(f: Callable[P, Success[R]]) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
+def fork(
+    f: Callable[P, Success[R]],
+) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
+
 
 @overload
 def fork(f: Callable[P, Try[E, R]]) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
 
-@overload
-def fork(f: Callable[P, Depend[Async, R]]) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
 
 @overload
-def fork(f: Callable[P, Effect[Async, E, R]]) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
+def fork(
+    f: Callable[P, Depend[Async, R]],
+) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
 
 
-
-
-
+@overload
+def fork(
+    f: Callable[P, Effect[Async, E, R]],
+) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
 
 
 def process_target(payload: bytes) -> bytes:
@@ -83,7 +95,9 @@ def process_target(payload: bytes) -> bytes:
     return cloudpickle.dumps(result)
 
 
-def fork(f: Callable[P, Success[R] | Effect[Async, E, R]]) -> Callable[P, Depend[Need[Executor], Task[R]]]:
+def fork(
+    f: Callable[P, Success[R] | Effect[Async, E, R]],
+) -> Callable[P, Depend[Need[Executor], Task[R]]]:
     @wraps(f)
     def decorator(*args: P.args, **kwargs: P.kwargs) -> Depend[Need[Executor], Task[R]]:
         def thread_target() -> R:
@@ -103,13 +117,11 @@ def fork(f: Callable[P, Success[R] | Effect[Async, E, R]]) -> Callable[P, Depend
 
 
 @overload
-def wait(target: Coroutine[Any, Any, R]) -> Depend[Async, R]:
-    ...
+def wait(target: Coroutine[Any, Any, R]) -> Depend[Async, R]: ...
 
 
 @overload
-def wait(target: Task[R]) -> Effect[Async, E, R]:
-    ...
+def wait(target: Task[R]) -> Effect[Async, E, R]: ...
 
 
 def wait(target: Coroutine[Any, Any, R] | Task[R]) -> Effect[Async, E, R]:
