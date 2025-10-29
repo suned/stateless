@@ -79,7 +79,7 @@ run(effect)
 # Guide
 
 
-## Effects & Abilities & Handlers
+## Effects, Abilities & Handlers
 `stateless` is a functional effect system for Python built around a pattern using [generator functions](https://docs.python.org/3/reference/datamodel.html#generator-functions). When programming with `stateless` you will describe your program's side-effects using the `stateless.Effect` type. `Effect` is in fact just a type alias for a generator:
 
 
@@ -137,6 +137,9 @@ When `hello_world` returns an `Effect[Greet, Never, None]`, it means that it dep
 To run an `Effect` that depends on abilities, you need to handle the abilities. Abilities are handled using `stateless.Handler`, defined as:
 
 ```python
+from stateless import Ability, Effect
+
+
 class Handler[A: Ability]:
     def __call__[**P, A2: Ability, E: Exception, R](
         self,
@@ -195,78 +198,60 @@ Lets try this instead:
 effect = handle(greet)(hello_world)()
 run(effect)  # outputs: Hello, world!
 ```
-Cool. Okay maybe not. The `hello_world` example is obviously contrived. There's no real benefit to sending `greeting` to `hello_world` via `yield` over just providing it as a regular function argument. The example is included here just to give you a rough idea of how the different pieces of `stateless` fit together.
+`A` and `E` of `stateless.Effect` is often parameterized with `Never`, so
+stateless provides type aliases for this to save you some typing:
+
+```python
+from typing import Never
+
+from stateless import Ability
+
+
+type Depend[A: Ability, R] = Effect[A, Never, R]  # for effects that depend on A but don't fail
+type Try[E: Exception, R] = Effect[Never, E, R]   # for effects that might fail but do not need Abilities
+type Success[R] = Effect[Never, Never, R]         # for effects that don't fail and do not need Abilities
+```
 
 ## Error Handling
 
 So far we haven't used the error type `E` for anything: We've simply parameterized it with `typing.Never`. We've claimed that this means that the effect doesn't fail. This is of course not literally true, as exceptions can still occur even if we parameterize `E` with `Never.`
 
-Take the `Files` ability from the previous section for example. Reading from the file system can of course fail for a number of reasons, which in Python will result in a subtype of `OSError` being raised. So calling for example `print_file` might raise an exception:
-
-```python
-from stateless import Depend
-
-
-def f() -> Depend[Files, None]:
-    yield from print_file('doesnt_exist.txt')  # raises FileNotFoundError
-```
-So what's the point of `E`?
-
-The point is that programming errors can be grouped into two categories: recoverable errors and unrecoverable errors. Recoverable errors are errors that are expected, and that users of the API we are writing might want to know about. `FileNotFoundError` is an example of such an error.
-
-Unrecoverable errors are errors that there is no point in telling the users of your API about.
-
 The intended use of `E` is to model recoverable errors so that users of your API can handle them with type safety.
 
-Let's use `E` to model the errors of `Files.read_file`:
+Let's use `E` to model the potential errors when reading a file:
 
 
 ```python
-from stateless import Effect, throw
-
-
-def read_file(path: str) -> Effect[Files, OSError, str]:
-    files = yield Files
-    try:
-        return files.read_file(path)
-    except OSError as e:
-        return (yield from throw(e))
-```
-
-The signature of `stateless.throw` is
-
-```python
-from typing import Never
-
-from stateless import Effect
-
-
-def throw[E: Exception](e: E) -> Effect[Never, E, Never]:
-    ...
-```
-In words `throw` returns an effect that just yields `e` and never returns. Because of this signature, if you assign the result of `throw` to a variable, you have to annotate it. But there is no meaningful type
-to annotate it with. So you're better off using the somewhat strange looking syntax `return (yield from throw(e))`.
-
-More conveniently you can use `stateless.throws` that just catches exceptions and yields them as an effect
-
-```python
-from stateless import Depend, throws
-
+from stateless import Effect, throws
 
 @throws(OSError)
-def read_file(path: str) -> Depend[Need[Files], str]:
-    files = yield from need(Files)
-    return files.read_file(path)
-
-
-reveal_type(read_file)  # revealed type is: def (str) -> Effect[Files, OSError, str]
+def read_file(path: str) -> str:
+    with open(path) as f:
+        return f.read()
 ```
+
+The signature of `stateless.throws` is
+
+```python
+from typing import Type, Callable
+from stateless import Effect, Try
+
+
+def throws[E2: Exception, E: Exception, A: Ability, R](
+    *errors: Type[E2],
+) -> Callable[
+    [Callable[P, Effect[A, E, R] | R]],
+    Callable[P, Effect[A, E | E2, R] | Try[E2, R]]
+]:
+    ...
+```
+In words, `throws` catches exceptions of type `E2`, and yields them.
 
 Error handling in `stateless` is done using the `stateless.catch` decorator. Its signature is:
 
 ```python
 from typing import Type
-from stateless import Effect, Depend
+from stateless import Effect
 
 
 def catch[**P, A, E: Exception, E2: Exception, R](
@@ -282,10 +267,10 @@ In words, the `catch` decorator catches errors of type `E` and moves the error f
 
 
 ```python
-from stateless import Depend
+from stateless import Success
 
 
-def handle_errors() -> Depend[Files, str]:
+def handle_errors() -> Success[str]:
     result: OSError | str = yield from catch(OSError)(read_file)('foo.txt')
     match result:
         case OSError():
@@ -299,7 +284,7 @@ def handle_errors() -> Depend[Files, str]:
 Consequently you can use your type checker to avoid unintentionally unhandled errors, or ignore them with type-safety as you please.
 
 
-`catch` can also catch a subset of errors produced by effects, and pass other errors up the call stack, just like when using regular exceptions. But unlike when using regular exceptions,
+`catch` can also catch a subset of errors produced by effects, and pass other errors up the call stack, just like when using try/except. But unlike when using try/except,
 your type checker can see and understand which errors are handled where:
 
 ```python
@@ -316,10 +301,10 @@ def handle_subset_of_errors() -> Try[PermissionError, str]:
 ```
 
 This means that:
-- You can't neglect to report an error in the signature for `handle_subset_of_errors` since your type checker can tell that `yield from catch(...)(fails_in_multiple_ways)` will still yield `PermissionError`
-- You can't neglect to handle errors in your code because your type checker can tell that `result` may be 2 different errors or a string.
+- You can't neglect to report an error in the signature for `handle_subset_of_errors` without a type-checker error, since your type checker can tell that `yield from catch(...)(fails_in_multiple_ways)` will still yield `PermissionError`
+- You can't neglect to handle errors in your code without a type-checker error because your type checker can tell that `result` may be 2 different errors or a string.
 
-## Built in Abilities
+## Built-in Abilities
 
 ### Need
 

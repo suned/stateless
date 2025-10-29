@@ -231,9 +231,51 @@ def catch_all(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
     return Catch(Exception)(f)  # type: ignore
 
 
+@dataclass(frozen=True)
+class Throws(Generic[E2]):
+    errors: tuple[Type[E2], ...]
+
+    @overload
+    def __call__(self, f: Callable[P, Success[R]]) -> Callable[P, Try[E2, R]]: ...
+
+    @overload
+    def __call__(  # type: ignore
+        self, f: Callable[P, Depend[A, R]]
+    ) -> Callable[P, Effect[A, E2, R]]: ...
+
+    @overload
+    def __call__(self, f: Callable[P, Try[E, R]]) -> Callable[P, Try[E | E2, R]]: ...
+
+    @overload
+    def __call__(
+        self, f: Callable[P, Effect[A, E, R]]
+    ) -> Callable[P, Effect[A, E | E2, R]]: ...
+
+    @overload
+    def __call__(self, f: Callable[P, R]) -> Callable[P, Try[E2, R]]: ...
+
+    def __call__(  # type: ignore
+        self, f: Callable[P, Effect[Ability[Any], Exception, R] | R]
+    ) -> Effect[Ability[Any], Exception, R]:
+        @wraps(f)
+        def decorator(
+            *args: P.args, **kwargs: P.kwargs
+        ) -> Effect[Ability[Any], Exception, R]:
+            try:
+                result = f(*args, **kwargs)
+                if isinstance(result, Generator):
+                    result = yield from result
+
+                return result  # type: ignore
+            except self.errors as e:  # pyright: ignore
+                return (yield from throw(e))
+
+        return decorator  # type: ignore
+
+
 def throws(
     *errors: Type[E2],
-) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E | E2, R]]]:
+) -> Throws[E2]:
     """
     Decorate functions returning effects by catching exceptions of a certain type and yields them as an effect.
 
@@ -246,18 +288,7 @@ def throws(
         A decorator that catches exceptions of a certain type from functions returning effects and yields them as an effect.
 
     """
-
-    def decorator(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Effect[A, E | E2, R]]:
-        @wraps(f)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Effect[A, E | E2, R]:
-            try:
-                return (yield from f(*args, **kwargs))
-            except errors as e:  # pyright: ignore
-                return (yield from throw(e))
-
-        return wrapper
-
-    return decorator
+    return Throws(errors)
 
 
 @dataclass(frozen=True)
@@ -267,7 +298,7 @@ class Memoize(Effect[A, E, R]):
     effect: Effect[A, E, R]
     _memoized_result: R | None = field(init=False, default=None)
 
-    def send(self, value: A) -> Type[A] | E:
+    def send(self, value: A) -> A | E:
         """Send a value to the effect."""
 
         if self._memoized_result is not None:
@@ -296,7 +327,7 @@ class Memoize(Effect[A, E, R]):
                 raise e
     else:
 
-        def throw(self, value: Exception, /) -> Type[A] | E:  # type: ignore
+        def throw(self, value: Exception, /) -> A | E:  # type: ignore
             """Throw an exception into the effect."""
 
             try:
