@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Generator, Generic, Self, TypeVar
 
 from stateless.errors import MissingAbilityError
@@ -6,7 +5,6 @@ from stateless.errors import MissingAbilityError
 T = TypeVar("T", covariant=True)
 
 
-@dataclass(frozen=True)
 class Ability(Generic[T]):
     def __iter__(self: Self) -> Generator[Self, T, T]:
         try:

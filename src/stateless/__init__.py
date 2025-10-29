@@ -18,6 +18,6 @@ from stateless.effect import (
     throws,
 )
 from stateless.functions import repeat, retry
-from stateless.handler import Handler
+from stateless.handler import Handler, handle
 from stateless.need import Need, need, supply
 from stateless.schedule import Schedule
