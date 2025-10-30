@@ -42,6 +42,12 @@ ignore = ["D107", "D213", "D203", "D202", "D212"]
 "tests/**/*" = ["D100", "D101", "D102", "D103", "D104", "D105", "D107"]
 
 
+[tool.coverage.report]
+exclude_also = [
+    "@overload"
+]
+
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
