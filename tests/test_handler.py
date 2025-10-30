@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 
 from pytest import raises
-from stateless import Depend, Effect, Need, need, run, supply
-from stateless.errors import MissingAbilityError
 from typing_extensions import Never
 
+from stateless import Depend, Effect, Need, need, run, supply
+from stateless.ability import Ability
+from stateless.effect import catch, throws
+from stateless.errors import MissingAbilityError
+from stateless.handler import handle
 from tests.utils import run_with_abilities
 
 
@@ -99,3 +102,58 @@ def test_ability_order_with_multiple_abilities() -> None:
 
     effect = outer(inner(f))()
     assert run(effect) == "inner"
+
+
+def test_compose_handler_with_catch() -> None:
+    error = ValueError()
+
+    @throws(ValueError)
+    def fail() -> Never:
+        raise error
+
+    effect = catch(ValueError)(supply("value")(fail))()
+    assert run(effect) == error
+
+
+def test_handle() -> None:
+    class TestAbility(Ability[None]):
+        pass
+
+    def no_annotations(_):
+        pass
+
+    def only_return_annotation(_) -> None:
+        pass
+
+    def two_annotations(_: TestAbility, __: str) -> None:
+        pass
+
+    with raises(ValueError):
+        handle(no_annotations)
+
+    with raises(ValueError):
+        handle(only_return_annotation)
+
+    with raises(ValueError):
+        handle(two_annotations)  # type: ignore
+
+    target_ability = TestAbility()
+
+    def f() -> Depend[TestAbility, None]:
+        yield target_ability
+
+    def handle_test_ability(ability: TestAbility) -> None:
+        assert ability == target_ability
+
+    effect = handle(handle_test_ability)(f)()
+    run(effect)
+
+    class OtherAbility(Ability[None]):
+        pass
+
+    def g() -> Depend[OtherAbility, None]:
+        yield OtherAbility()
+
+    with raises(MissingAbilityError):
+        effect = handle(handle_test_ability)(g)()
+        run(effect)  # type: ignore

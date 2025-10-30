@@ -2,6 +2,7 @@ from datetime import timedelta
 from typing import NoReturn as Never
 
 from pytest import raises
+
 from stateless import (
     Effect,
     Success,
@@ -18,9 +19,9 @@ from stateless import (
 )
 from stateless.effect import SuccessEffect
 from stateless.functions import RetryError
+from stateless.need import need
 from stateless.schedule import Recurs, Spaced
 from stateless.time import Time
-
 from tests.utils import run_with_abilities
 
 
@@ -198,3 +199,8 @@ def test_success_throw() -> None:
     effect = SuccessEffect("hi")
     with raises(ValueError, match="oops"):
         effect.throw(ValueError("oops"))
+
+
+def test_compose_catch_and_handle() -> None:
+    effect = supply("value")(catch(Exception)(lambda: need(str)))()
+    assert run(effect) == "value"
