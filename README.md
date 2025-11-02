@@ -39,8 +39,8 @@ class Console:
         print(value)
 
 
-# Effects are generators that yield abilities that can handled up the call stack.
-# An example ability might be `stateless.Need` that is used for type-safe dependency injection.
+# Effects are generators that yield abilities that can be handled up the call stack.
+# `stateless.Need` is a built-in ability that is used for type-safe dependency injection.
 def print_(value: Any) -> Effect[Need[Console], Never, None]:
     console = yield from need(Console)
     console.print(value)
@@ -68,11 +68,10 @@ def print_file(path: str) -> Effect[Need[Files] | Need[Console], Never, None]:
             yield from print_(content)
 
 
-# Effects are run using `stateless.run`.
+# Before an effect can be executed, all of its abilities must be handled.
 # The `Need` ability is handled using `stateless.supply`.
-# Before an effect can be executed with `run`, it must have
-# all of its abilities handled.
 effect = supply(Files(), Console())(print_file)('foo.txt')
+# Effects are run using `stateless.run`.
 run(effect)
 ```
 
@@ -90,22 +89,37 @@ from stateless import Ability
 
 type Effect[A: Ability, E: Exception, R] = Generator[A | E, Any, R]
 ```
- In other words, an `Effect` is a generator that can yield classes of type `A` or exceptions of type `E`, can be sent anything, and returns results of type `R`. Let's break that down a bit further:
+In other words, an `Effect` is a generator that can yield values of type `A` or exceptions of type `E`, can be sent anything, and returns results of type `R`. Let's break that down a bit further:
 
--  The type parameter `A` stands for _"Ability"_. This is the type of value, or types of values, that an effect depends on in order to produce its result.
+-  The type parameter `A` stands for _"Ability"_. This is the type of value, or types of values, that must be handled in order the effect to produce its result.
 
  - The type parameter `E` stands for _"Error"_. This the type of errors that an effect might fail with.
 
  - The type parameter `R` stands for _"Result"_. This is the type of value that an `Effect` will produce if no errors occur.
 
 
-Lets start by defining a simple ability. `stateless.Ability` is defined as:
+`A` and `E` of `stateless.Effect` are often parameterized with `Never`, so
+stateless provides the following type aliases to save you some typing:
+
+```python
+from typing import Never
+
+from stateless import Ability, Effect
+
+
+type Depend[A: Ability, R] = Effect[A, Never, R]  # for effects that depend on A but don't fail
+type Try[E: Exception, R] = Effect[Never, E, R]   # for effects that might fail but do not need Abilities
+type Success[R] = Effect[Never, Never, R]         # for effects that don't fail and do not need Abilities
+```
+
+
+Lets define a simple ability. `stateless.Ability` is defined as:
 
 ```python
 class Ability[R]:
     ...
 ```
-The `R` type parameter represents the expected result type of handling the effect. For example:
+The `R` type parameter represents the expected result of handling the effect. For example:
 
 ```python
 from dataclasses import dataclass
@@ -117,7 +131,7 @@ class Greet(Ability[str]):
     name: str
 ```
 
-When `Greet` inherits from `Ability[str]`, it means that when a function yields an instance of `Greet`, it expects to be sent a `str` value back.
+When `Greet` inherits from `Ability[str]`, it means that when a function yields an instance of `Greet`, the function should expect that the result of handling `Greet` has type `str`.
 
 Let's use `Greet`:
 
@@ -134,7 +148,7 @@ def hello_world() -> Effect[Greet, Never, None]:
 
 When `hello_world` returns an `Effect[Greet, Never, None]`, it means that it depends on the `Greet` ability (`A` is parameterized with `Greet`). It can't fail (`E` is parameterized with `Never`), and it doesn't produce a value (`R` is parameterized with `None`).
 
-To run an `Effect` that depends on abilities, you need to handle the abilities. Abilities are handled using `stateless.Handler`, defined as:
+To run an `Effect` that depends on abilities, you need to handle all of the abilities of that effect. Abilities are handled using `stateless.Handler`, defined as:
 
 ```python
 from stateless import Ability, Effect
@@ -148,7 +162,7 @@ class Handler[A: Ability]:
     ...
 ```
 
-Just like the paramater `A` of `Effect`, The type parameter `A` of `Handler` stands for "Ability". This is the type of abilities that this `Handler` instance can handle.
+Just like the parameter `A` of `Effect`, The type parameter `A` of `Handler` stands for "Ability". This is the type of abilities that this `Handler` instance can handle.
 
 `Handler.__call__` is a decorator that accepts a function that returns a `stateless.Effect` that depends on abilities `A` and `A2`, and returns a new function that returns
 an effect that only depends on ability `A2`. In other words, the ability `A` is handled by `Handler` and the decorated function now produces an effect that no longer depends on `A`.
@@ -169,6 +183,9 @@ reveal_type(effect)  # revealed type is: Effect[Never, Never, None]
 
 > [!NOTE]
 > `stateless.handle` depends on type annotations of the handler function to match abilities with handler functions. To use `stateless.handle` you must annotate the argument of the handler function with an appropriate ability.
+>
+> `stateless.handle` just uses `isinstance` to match abilities
+> with handlers, so handling abilities with type parameters may not work as expected.
 
 We can see in the revealed type how `handle(greet)` has eliminated the `Greet` ability from the effect returned by `hello_world`, and the type is now `Never`, meaning the new effect does not require any abilities.
 
@@ -198,18 +215,40 @@ Lets try this instead:
 effect = handle(greet)(hello_world)()
 run(effect)  # outputs: Hello, world!
 ```
-`A` and `E` of `stateless.Effect` is often parameterized with `Never`, so
-stateless provides type aliases for this to save you some typing:
+Since we've handled the `Greet` ability for `hello_world`, we can now run the resulting effect with no type checker errors.
+
+
+To access the result type of an effect from another effect, use `yield from`:
+
 
 ```python
-from typing import Never
+def f() -> Success[float]: ...
 
-from stateless import Ability
+def g() -> Success[float]:
+    number = yield from f()
+    return number * 2
+```
 
+Simple effects can be combined into complex effects by depending on multiple abilities:
 
-type Depend[A: Ability, R] = Effect[A, Never, R]  # for effects that depend on A but don't fail
-type Try[E: Exception, R] = Effect[Never, E, R]   # for effects that might fail but do not need Abilities
-type Success[R] = Effect[Never, Never, R]         # for effects that don't fail and do not need Abilities
+```python
+def depend_on_some_ability() -> Depend[SomeAbility, None]: ...
+
+def depend_on_another_ability() -> Depend[AnotherAbility, None]: ...
+
+def depend_on_both_abilities() -> Depend[SomeAbility | AnotherAbility, None]:
+    yield from f()
+    yield from g()
+```
+
+One way to think about abilities is as a generalization of exceptions: when a function needs to have an ability handled it passes the ability up the call stack until an appropriate handler is found, similar to how a raised exception travels up the call stack. In contrast with exception handling however, once the ability is handled, the result is returned to function that yielded the ability, and execution resumes.
+
+Like exceptions, abilities can be partially handled (with type-safety):
+
+```python
+handle: Handler[SomeAbility] = ...
+effect = handle(depend_on_both_abilities)()
+reveal_type(effect)  # revealed type is: Depend[AnotherAbility, None]
 ```
 
 ## Error Handling
@@ -218,19 +257,8 @@ So far we haven't used the error type `E` for anything: We've simply parameteriz
 
 The intended use of `E` is to model recoverable errors so that users of your API can handle them with type safety.
 
-Let's use `E` to model the potential errors when reading a file:
+The main way to turn exceptions into errors of effects is using `stateless.throws`. Its signature is:
 
-
-```python
-from stateless import Effect, throws
-
-@throws(OSError)
-def read_file(path: str) -> str:
-    with open(path) as f:
-        return f.read()
-```
-
-The signature of `stateless.throws` is
 
 ```python
 from typing import Type, Callable
@@ -246,6 +274,20 @@ def throws[E2: Exception, E: Exception, A: Ability, R](
     ...
 ```
 In words, `throws` catches exceptions of type `E2`, and yields them.
+
+
+Let's use `throws` to model the potential errors when reading a file.
+```python
+from stateless import Effect, throws
+
+@throws(FileNotFoundError, PermissionError)
+def read_file(path: str) -> str:
+    with open(path) as f:
+        return f.read()
+
+
+reveal_type(read_file):  # Revealed type is: Callable[[str], Try[FileNotFoundError | PermissionError, str]]
+```
 
 Error handling in `stateless` is done using the `stateless.catch` decorator. Its signature is:
 
@@ -263,24 +305,26 @@ def catch[**P, A, E: Exception, E2: Exception, R](
     ...
 ```
 
-In words, the `catch` decorator catches errors of type `E` and moves the error from the error type `E` of the `Effect` produced by the decorated function, to the result type `R` of the effect of the return function. This means you can access the potential errors directly in your code:
+In words, the `catch` decorator catches errors of type `E` and moves the error from the error type `E` of the `Effect` produced by the decorated function, to the result type `R` of the effect of the return function.
+
+This means you can access the potential errors directly in your code:
 
 
 ```python
+from typing import reveal_type
+
 from stateless import Success
 
 
 def handle_errors() -> Success[str]:
-    result: OSError | str = yield from catch(OSError)(read_file)('foo.txt')
+    result = yield from catch(FileNotFoundError, PermissionError)(read_file)('foo.txt')
+    reveal_type(result)  # Revealed type is: FileNotFoundError | PermissionError | str
     match result:
-        case OSError():
+        case FileNotFoundError() | PermissionError():
             return 'default value'
         case _:
             return result
-
 ```
-(You don't need to annotate the type of `result`, it can be inferred by your type checker. We do it here simply because its instructive to look at the types.)
-
 Consequently you can use your type checker to avoid unintentionally unhandled errors, or ignore them with type-safety as you please.
 
 
@@ -308,125 +352,43 @@ This means that:
 
 ### Need
 
-Let's look at a bigger example. The main point of a purely functional effect system is to enable side-effects such as IO in a purely functional way. So let's implement some abilities for doing side-effects.
+`Need` is a an ability for type-safe dependency injection. By "type-safe" we mean:
 
-We'll start with an ability we'll call `Console` for writing to the console:
+- Functions with dependencies can't fail to report a dependency in its type signature without a type error.
+- You can't run effects with dependencies without handling them.
 
-```python
-class Console:
-    def print(self, line: str) -> None:
-        print(line)
-```
-We can use `Console` with `Effect` as an ability. Recall that the _"send"_ type of `Effect` is `Any`. In order to tell our type checker that the result of yielding the `Console` class will be a `Console` instance, we can use the `stateless.need` function. Its signature is:
+`Need` is defined as:
 
 ```python
 from typing import Type
 
-from stateless import Depend, Need
+from stateless import Ability
 
 
-def depend[A](ability: Type[A]) -> Depend[A, A]:
-    ...
+class Need[T](Ability[T]):
+    t: Type[T]
 ```
 
-`stateless.Depend` is a type alias:
+`T` could be anything, but will often be types that can perform side-effects.
+
+Let's define a type we'll call `Console` for writing to the console:
 
 ```python
-from typing import Never
+from stateless import Depend, Need, need
 
 
-type Depend[A, R] = Effect[A, Never, R]
-```
-In words, `Depend` is just an effect that depends on `A` and produces no errors.
-
-So `depend` just yields the ability type for us, and then returns the instance that will eventually be sent from `Abilities`.
-
-Let's see that in action with the `Console` ability:
-
-```python
-from stateless import Depend, depend
+class Console:
+    def print(self, line: str) -> None:
+        print(line)
 
 
-def say_hello() -> Depend[Console, None]:
-    console = yield from depend(Console)
+def say_hello() -> Depend[Need[Console], None]:
+    console = yield from need(Console)
     console.print(f"Hello, world!")
 ```
 
-Let's add another ability `Files` to read rom the file system:
-
-
-```python
-class Files:
-    def read(self, path: str) -> str:
-        with open(path, 'r') as f:
-            return f.read()
-```
-Putting it all together:
-
-```python
-from stateless import Depend
-
-
-def print_file(path: str) -> Depend[Console | Files, None]:
-    files = yield from depend(Files)
-    console = yield from depend(Console)
-
-    content = files.read(path)
-    console.print(content)
-```
-Note that for the `Effect` returned by `print_file`, `A` is parameterized with `Console | Files` since `print_file` depends on both `Console` and `Files` (i.e it will yield both classes).
-
-`print_file` is a good demonstration of why the _"send"_ type of `Effect` must be `Any`: Since `print_file` expects to be sent instances of `Console` _or_ `File`, it's not possible for our type-checker to know on which yield which type is going to be sent, and because of the variance of `typing.Generator`, we can't write `depend` in a way that would allow us to type `Effect` with a _"send"_ type other than `Any`.
-
-`print_file` is also an example of how to build complex effects using functions that return simpler effects using `yield from`:
-
-
-```python
-from stateless import Depend, depend
-
-
-def get_str() -> Depend[str, str]:
-    s = yield from depend(str)
-    return s
-
-
-def get_int() -> Depend[str | int, tuple[str, int]]:
-    s = yield from get_str()
-    i = yield from depend(int)
-
-    return (s, i)
-```
-
-you can of course run `print_file` with `Abilities` and `run`:
-
-
-```python
-from stateless import Abilities, run
-
-
-abilities = Abilities().add(Files()).add(Console())
-effect = abilities.handle(print_file)('foo.txt')
-run(effect)
-```
-
-`Abilities` also allows us to partially provide abilities for an effect:
-
-
-```python
-print_file = Abilities().add(Console()).handle(print_file)
-reveal_type(print_file)  # revealed type is: () -> Depend[Files, None]
-
-print_file = Abilities().add(Files()).handle(print_file)
-reveal_type(print_file)  # revealed type is: () -> Depend[Never, None]
-```
-
-The first time we handle abilities of `print_file`, we only handle the `Console` ability. The result is a function that returns an effect that only depends on `Files`.
-The second time we handle abilities of `print_file`, we only handle the `Files` ability. The result is a function that returns an effect that doesn't depend on any abilities.
-
-This feature allows you to provide some abilities locally to a part of your program, hiding implementation details from the rest of your program.
-
 A major purpose of dependency injection is to vary the injected ability to change the behavior of the effect. For example, we
-might want to change the behavior of `print_files` in tests:
+might want to change the behavior of `say_hello` in tests:
 
 
 ```python
@@ -435,129 +397,81 @@ class MockConsole(Console):
         pass
 
 
-class MockFiles(Files):
-    def __init__(self, content: str) -> None:
-        self.content = content
-
-    def read(self, path: str) -> str:
-        return self.content
-
-
-def mock_abilities() -> Abilities[Console | Files]:
+def test_handler() -> Handler[Console]:
     console = MockConsole()
-    files = MockFiles("mock content")
-    return Abilities().add(console).add(files))
+    return supply(console)
 
-abilities = mock_abilities()
-effect = abilities.handle(print_file)('foo.txt')
+
+effect = test_handler()(say_hello)('foo.txt')
 run(effect)
 ```
 
-Our type-checker will likely infer the types `console` and `files` to be `MockConsole` and `MockFiles` respectively, So we have moved their initialization to a function with the annotated return type `Abilities[Console | Files`]. Otherwise, our type checker will not be able to infer that `abilities.handle` in fact handles the `Console` and `Files` abilities of `print_file`.
-
-Besides `Effect`, stateless` provides you with a few other type aliases that can save you a bit of typing. Firstly success which is just defined as:
-
-```python
-from typing import Never
-
-
-type Success[R] = Effect[Never, Never, R]
-```
-
-for effects that don't fail and don't require abilities (can be easily instantiated using the `stateless.success` function).
-
-Secondly, the `Depend` type alias, defined as:
-
-```python
-from typing import Never
-
-type Depend[A, R] = Effect[A, Never, R]
-```
-
-for effects that depend on `A` but produces no errors.
-
-
-Finally the `Try` type alias, defined as:
-
-
-```python
-from typing import Never
-
-
-type Try[E, R] = Effect[Never, E, R]
-```
-For effects that do not require abilities, but might produce errors.
-
-Sometimes, instantiating abilities may itself require side-effects. For example, consider a program that requires a `Config` ability:
-
-
-```python
-from stateless import Depend
-
-
-class Config:
-    ...
-
-
-def main() -> Depend[Config, None]:
-    ...
-```
-
-Now imagine that you want to provide the `Config` ability by reading from environment variables:
-
-
-```python
-import os
-
-from stateless import Depend, depend
-
-
-class OS:
-    environ: dict[str, str] = os.environ
-
-
-def get_config() -> Depend[OS, Config]:
-    os = yield from depend(OS)
-    return Config(
-        auth_token=os.environ['AUTH_TOKEN'],
-        url=os.environ['URL']
-    )
-```
-
-To supply the `Config` instance returned from `get_config`, we can use `Abilities.add_effect`:
-
-
-```python
-from stateless import Abilities
-
-
-Abilities().add(OS()).add_effect(get_config())
-```
-
-`Abilities.add_effect` assumes that all abilities required by the effect given as its argument can be provided by `Abilities`. If this is not the case, you'll get a type-checker error:
-
-```python
-from stateless import Depend, Abilities
-
-
-class A:
-    pass
-
-
-class B:
-    pass
-
-
-def get_B() -> Depend[A, B]:
-    ...
-
-Abilities().add(A()).add_effect(get_B())  # OK
-Abilities().add_effect(get_B())           # Type-checker error!
-```
-
-(It will often make sense to use an `abc.ABC` as your ability types to enforce programming towards the interface and not the implementation. If you use `mypy` however, note that [using abstract classes where `typing.Type` is expected is a type-error](https://github.com/python/mypy/issues/4717), which will cause problems if you pass an abstract type to `depend`. We recommend disabling this check, which will also likely be the default for `mypy` in the future.)
+Our type-checker will likely infer the types `console` to be `MockConsole`, so we have moved the initialization to a function with the annotated return type `Handler[Console`]. Otherwise, our type checker will not be able to infer that the handler in fact handles the `Console` ability of `say_hello`.
 
 ### Async
+The `Async` ability is used to run code asynchronously, either with `asyncio` or `concurrent.futures`.
+
+to use the result of an `asyncio` coroutine, use the `stateless.wait` function:
+
+
+```python
+from stateless import wait, Async, Depend
+
+
+async def do_io() -> str: ...
+
+
+def use_io() -> Depend[Async, str]:
+    result = yield from wait(do_io())
+    return result
+```
+
+Recall that the signature of `stateless.run` is:
+
+
+```python
+from stateless import Async
+
+
+def run[R](effect: Effect[Async, Exception, R]) -> R: ...
+```
+
+The reason `run` does not need the `Async` effect handled is because `stateless` just calls `asyncio.run` to run `asyncio` coroutines when executing effects. If you want to defer execution of coroutines, for example when integrating `stateless` with another framework that manages the event loop, for example an ASGI server, you can use `stateless.run_async` defined as:
+
+
+```python
+async def run_async[R](effect: Effect[Async, Exception, R]) -> R: ...
+```
+
+(in fact `stateless.run(effect)` just calls `asyncio.run(run_async(effect))`).
+
+
+To run effects in other process/threads, use `stateless.fork`, defined as:
+
+
+```python
+def fork[**P, R](f: Callable[P, Try[Exception, R]]) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
+```
+
+`fork` will simply call `stateless.run` in the remote process/thread, so all abilities of `f` must be handled before forking.
+
+Moreover, all unhandled errors yielded by `f` will be raised in the remote thread, so if you want to handle errors from forked effect in the main process/thread, you need to use `stateless.catch` before forking:
+
+
+```python
+def may_fail() -> Try[OSError, str]: ...
+
+
+def run_may_fail() -> Depend[Need[Executor], str]:
+    task = yield from fork(catch(OSError)(may_fail))()
+    result = yield from wait(task)
+    reveal_type(result)  # Revealed type is: str | OSError
+    match result:
+        case OSError():
+            return 'default value'
+        case _:
+            return result
+```
 
 ## Repeating and Retrying Effects
 

@@ -47,6 +47,10 @@ exclude_also = [
     "@overload"
 ]
 
+[tool.coverage.run]
+concurrency = ["multiprocessing", "thread"]
+source = ["src/"]
+
 
 [build-system]
 requires = ["poetry-core"]

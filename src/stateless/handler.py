@@ -25,26 +25,25 @@ P = ParamSpec("P")
 @dataclass(frozen=True)
 class Handler(Generic[A]):
     # Sadly, complete type safety here requires higher-kinded types.
-    on: Callable[[A], Any]
+    handle: Callable[[A], Any]
 
     @overload
-    def __call__(
-        self, f: Callable[P, Depend[A, R]]
-    ) -> Callable[P, Success[R]]: ...  # pragma: no cover
+    def __call__(self, f: Callable[P, Depend[A, R]]) -> Callable[P, Success[R]]:
+        ...  # pragma: no cover
 
     @overload
     def __call__(self, f: Callable[P, Depend[A | A2, R]]) -> Callable[P, Depend[A2, R]]:  # pyright: ignore[reportOverlappingOverload]
         ...  # pragma: no cover
 
     @overload
-    def __call__(
-        self, f: Callable[P, Effect[A, E, R]]
-    ) -> Callable[P, Try[E, R]]: ...  # pragma: no cover
+    def __call__(self, f: Callable[P, Effect[A, E, R]]) -> Callable[P, Try[E, R]]:
+        ...  # pragma: no cover
 
     @overload
     def __call__(
         self, f: Callable[P, Effect[A2 | A, E, R]]
-    ) -> Callable[P, Effect[A2, E, R]]: ...  # pragma: no cover
+    ) -> Callable[P, Effect[A2, E, R]]:
+        ...  # pragma: no cover
 
     def __call__(
         self, f: Callable[P, Effect[A, E, R] | Effect[A | A2, E, R]]
@@ -63,7 +62,7 @@ class Handler(Generic[A]):
                             yield error
                         case ability:
                             try:
-                                value = self.on(ability)
+                                value = self.handle(ability)
                             except UnhandledAbilityError:
                                 # defer to handlers up the call stack
                                 value = yield ability  # type: ignore

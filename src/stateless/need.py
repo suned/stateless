@@ -28,17 +28,18 @@ def need(t: Type[T]) -> Depend[Need[T], T]:
 
 
 @overload
-def supply(v1: T, /) -> Handler[Need[T]]: ...  # pragma: no cover
+def supply(v1: T, /) -> Handler[Need[T]]:
+    ...  # pragma: no cover
 
 
 @overload
-def supply(v1: T, v2: T2, /) -> Handler[Need[T] | Need[T2]]: ...  # pragma: no cover
+def supply(v1: T, v2: T2, /) -> Handler[Need[T] | Need[T2]]:
+    ...  # pragma: no cover
 
 
 @overload
-def supply(
-    v1: T, v2: T2, v3: T3, /
-) -> Handler[Need[T] | Need[T2] | Need[T3]]: ...  # pragma: no cover
+def supply(v1: T, v2: T2, v3: T3, /) -> Handler[Need[T] | Need[T2] | Need[T3]]:
+    ...  # pragma: no cover
 
 
 def supply(first: T, /, *rest: T2) -> Handler[Need[T] | Need[T2]]:
@@ -52,4 +53,4 @@ def supply(first: T, /, *rest: T2) -> Handler[Need[T] | Need[T2]]:
             if isinstance(instance, ability.t):
                 return instance
 
-    return Handler(on=on)
+    return Handler(handle=on)
