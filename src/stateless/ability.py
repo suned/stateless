@@ -1,6 +1,8 @@
 """Module containing the base ability type."""
 
-from typing import Generator, Generic, Self, TypeVar
+from typing import Generator, Generic, TypeVar
+
+from typing_extensions import Self
 
 from stateless.errors import MissingAbilityError
 
