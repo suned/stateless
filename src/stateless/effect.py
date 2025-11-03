@@ -103,7 +103,7 @@ class SuccessEffect(Success[R]):
         ) -> Never:
             """Throw an exception in this effect."""
             raise exc_type
-    else:
+    else:  # pragma: no cover
 
         def throw(self, value: Exception, /) -> Never:  # type: ignore
             """Throw an exception in this effect."""
@@ -371,7 +371,7 @@ class Memoize(Effect[A, E, R]):
             except StopIteration as e:
                 object.__setattr__(self, "_memoized_result", e.value)
                 raise e
-    else:
+    else:  # pragma: no cover
 
         def throw(self, value: Exception, /) -> A | E:  # type: ignore
             """Throw an exception into the effect."""
