@@ -10,4 +10,6 @@ class MissingAbilityError(Exception):
 
 
 class UnhandledAbilityError(Exception):
+    """Raised when a handler is unable to handle an ability."""
+
     pass

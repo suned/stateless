@@ -1,6 +1,7 @@
+"""Module for asyncio integration and running effects in parallel."""
+
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import wraps
 from types import TracebackType
@@ -31,9 +32,16 @@ B = TypeVar("B")
 
 @dataclass(frozen=True)
 class Task(Generic[R]):
+    """
+    Represents a running task, created by `fork`.
+
+    Wraps an asyncio future for the eventual result.
+    """
+
     future: asyncio.Future[bytes] | asyncio.Future[R]
 
     async def get_result(self) -> R:
+        """Get the result of this task."""
         result = await self.future
         if isinstance(result, bytes):
             return cloudpickle.loads(result)  # type: ignore
@@ -42,6 +50,12 @@ class Task(Generic[R]):
 
 @dataclass(frozen=True)
 class Async(Ability[Any]):
+    """
+    The Async ability.
+
+    Used for integration with asyncio.
+    """
+
     awaitable: Awaitable[Any]
 
 
@@ -51,6 +65,13 @@ class Async(Ability[Any]):
 # with either a Process- or ThreadPoolExecutor
 @dataclass(frozen=True, init=False)
 class Executor:
+    """
+    Wrapper for `concurrent.futures.Executor`.
+
+    Exists mainly for improved type inference when handling
+    `Need[Executor]`.
+    """
+
     executor: ThreadPoolExecutor | ProcessPoolExecutor
 
     def __init__(
@@ -62,6 +83,7 @@ class Executor:
         object.__setattr__(self, "executor", executor)
 
     def __enter__(self) -> "Executor":
+        """Call `__enter__` on the wrapped executor."""
         self.executor.__enter__()
         return self
 
@@ -71,6 +93,7 @@ class Executor:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
+        """Call `__exit__` on the wrapped executor."""
         self.executor.__exit__(exc_type, exc_val, exc_tb)
 
 
@@ -103,6 +126,18 @@ def fork(
 def fork(
     f: Callable[P, Success[R] | Effect[Async, E, R]],
 ) -> Callable[P, Depend[Need[Executor], Task[R]]]:
+    """
+    Run the effect produced by `f` in another thread or process using `Executor`.
+
+    Args:
+    ----
+        f: Function that produces an effect
+    Returns:
+        `f` decorated so it runs in a thread or process managed
+        by `Executor`
+
+    """
+
     @wraps(f)
     def decorator(*args: P.args, **kwargs: P.kwargs) -> Depend[Need[Executor], Task[R]]:
         def thread_target() -> R:
@@ -113,7 +148,7 @@ def fork(
         loop = asyncio.get_running_loop()
         if isinstance(executor.executor, ProcessPoolExecutor):
             payload = cloudpickle.dumps((f, args, kwargs))
-            future = loop.run_in_executor(executor.executor, process_target, payload)
+            future = loop.run_in_executor(executor.executor, _process_target, payload)
         else:
             future = loop.run_in_executor(executor.executor, thread_target)  # type: ignore
         return Task(future)
@@ -121,7 +156,7 @@ def fork(
     return decorator
 
 
-def process_target(payload: bytes) -> bytes:
+def _process_target(payload: bytes) -> bytes:
     f, args, kwargs = cloudpickle.loads(payload)
     result = run(f(*args, **kwargs))
     return cast(bytes, cloudpickle.dumps(result))
@@ -138,6 +173,16 @@ def wait(target: Task[R]) -> Effect[Async, E, R]:
 
 
 def wait(target: Coroutine[Any, Any, R] | Task[R]) -> Effect[Async, E, R]:
+    """
+    Wait for the result of `target` using the `Async` ability.
+
+    Args:
+    ----
+        target: The coroutine or task to wait for
+    Returns:
+        The value produced by `target`.
+
+    """
     # We dont want `Async` to be generic since we don't
     # want to specify handlers for e.g `Async[int]` and `Async[str]`
     # separately. They should be handled by the same handler.

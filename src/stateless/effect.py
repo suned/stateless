@@ -35,6 +35,16 @@ Try: TypeAlias = Generator[E, Any, R]
 
 
 async def run_async(effect: Effect[Async, Exception, R]) -> R:
+    """
+    Run an effect asynchronously.
+
+    Args:
+    ----
+        effect: The effect to run
+    Returns:
+        The result of running `effect`.
+
+    """
     from stateless.async_ import Async
 
     try:
@@ -57,6 +67,18 @@ async def run_async(effect: Effect[Async, Exception, R]) -> R:
 
 
 def run(effect: Effect[Async, Exception, R]) -> R:
+    """
+    Run an effect.
+
+    Args:
+    ----
+        effect: The effect to run.
+
+    Returns:
+    -------
+        The result of running `effect`.
+
+    """
     return asyncio.run(run_async(effect))
 
 
@@ -237,6 +259,8 @@ def catch_all(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
 
 @dataclass(frozen=True)
 class Throws(Generic[E2]):
+    """Provides improved type inference for `throws`."""
+
     errors: tuple[Type[E2], ...]
 
     @overload
@@ -266,6 +290,19 @@ class Throws(Generic[E2]):
     def __call__(  # type: ignore
         self, f: Callable[P, Effect[Ability[Any], Exception, R] | R]
     ) -> Effect[Ability[Any], Exception, R]:
+        """
+        Decorate `f` as to except any instance of `errors` and yield.
+
+        Args:
+        ----
+            f: The function to decorate.
+
+        Returns:
+        -------
+            `f` decorated as to except exceptions and yield them.
+
+        """
+
         @wraps(f)
         def decorator(
             *args: P.args, **kwargs: P.kwargs

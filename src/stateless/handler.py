@@ -1,3 +1,5 @@
+"""Types and functions for handling abilities."""
+
 from dataclasses import dataclass
 from functools import wraps
 from typing import (
@@ -24,6 +26,8 @@ P = ParamSpec("P")
 
 @dataclass(frozen=True)
 class Handler(Generic[A]):
+    """Handles abilities."""
+
     # Sadly, complete type safety here requires higher-kinded types.
     handle: Callable[[A], Any]
 
@@ -50,6 +54,19 @@ class Handler(Generic[A]):
     def __call__(
         self, f: Callable[P, Effect[A, E, R] | Effect[A | A2, E, R]]
     ) -> Callable[P, Try[E, R] | Effect[A2, E, R]]:
+        """
+        Decorate `f` as to handle abilities yielded by `f`, or yield them if they can't be handled.
+
+        Args:
+        ----
+            f: Function to decorate.
+
+        Returns:
+        -------
+            `f` decorated as to handle its abilities.
+
+        """
+
         @wraps(f)
         def decorator(
             *args: P.args, **kwargs: P.kwargs
@@ -76,6 +93,19 @@ class Handler(Generic[A]):
 
 
 def handle(f: Callable[[A2], Any]) -> Handler[A2]:
+    """
+    Instantiate handler by inspecting type annotations.
+
+    Args:
+    ----
+        f: Function that handles an ability. Must be a unary function \
+        with its argument annotated as an ability type.
+
+    Returns:
+    -------
+        `Handler` that handles abilities of the type `f` accepts.
+
+    """
     d = get_type_hints(f)
     if len(d) == 0:
         raise ValueError(f"Handler function {f} was not annotated.")
@@ -94,7 +124,7 @@ def handle(f: Callable[[A2], Any]) -> Handler[A2]:
             f"'handle' uses type annotations to match handlers with abilities, so '{f}' must have exactly "
             "1 annotated argument."
         )
-    t = list(d.values())[0]
+    t, *_ = d.values()
 
     def on(ability: A2) -> Any:
         if not isinstance(ability, t):
