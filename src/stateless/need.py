@@ -164,7 +164,7 @@ def supply(  # type: ignore
     instances = (first, *rest)
 
     def on(ability: Need[T1]) -> T1:
-        if not isinstance(ability, Need) or not isinstance(first, ability.t):
+        if not isinstance(ability, Need):
             raise UnhandledAbilityError()
         for instance in instances:
             if isinstance(instance, ability.t):
