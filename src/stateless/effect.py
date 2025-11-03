@@ -363,7 +363,7 @@ class Memoize(Effect[A, E, R]):
             error: BaseException | object | None = None,
             exc_tb: TracebackType | None = None,
             /,
-        ) -> Type[A] | E:
+        ) -> A | E:
             """Throw an exception into the effect."""
 
             try:
