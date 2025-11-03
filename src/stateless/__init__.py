@@ -3,7 +3,7 @@
 # ruff: noqa: F401
 
 from stateless.ability import Ability
-from stateless.async_ import Async, Executor, fork, wait
+from stateless.async_ import Async, Executor, Task, fork, wait
 from stateless.effect import (
     Depend,
     Effect,

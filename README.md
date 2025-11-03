@@ -7,7 +7,7 @@ Programming with side-effects is hard: To reason about a unit in your code, like
 
 Programming without side-effects is _less_ hard: To reason about a unit in you code, like a function, you can focus on what _that_ function is doing, since the units it interacts with don't affect the state of the program in any way.
 
-But of course side-effects can't be avoided, since what we ultimately care about in programming are just that: The side effects, such as printing to the console or writing to a database.
+But of course side-effects can't be avoided, since what we ultimately care about in programming are the side effects, such as printing to the console or writing to a database.
 
 Functional effect systems like `stateless` aim to make programming with side-effects less hard. We do this by separating the specification of side-effects from the interpretation, such that functions that need to perform side effects do so indirectly via the effect system.
 
@@ -58,7 +58,7 @@ def read_file(path: str) -> Effect[Need[Files], Never, str]:
 
 # Simple effects can be combined into complex ones by
 # depending on multiple abilities.
-def print_file(path: str) -> Effect[Need[Files] | Need[Console], Never, None]:
+def process_file(path: str) -> Effect[Need[Files] | Need[Console], Never, None]:
     # catch will return exceptions yielded by other functions
     result = yield from catch(OSError)(read_file)(path)
     match result:
@@ -241,15 +241,17 @@ def depend_on_both_abilities() -> Depend[SomeAbility | AnotherAbility, None]:
     yield from g()
 ```
 
-One way to think about abilities is as a generalization of exceptions: when a function needs to have an ability handled it passes the ability up the call stack until an appropriate handler is found, similar to how a raised exception travels up the call stack. In contrast with exception handling however, once the ability is handled, the result is returned to function that yielded the ability, and execution resumes.
+One way to think about abilities is as a generalization of exceptions: when a function needs to have an ability handled it passes the ability up the call stack until an appropriate handler is found, similar to how a raised exception travels up the call stack. In contrast with exception handling however, once the ability is handled, the result of handling the ability is returned to function that yielded it in the first place, and execution resumes.
 
 Like exceptions, abilities can be partially handled (with type-safety):
 
 ```python
-handle: Handler[SomeAbility] = ...
-effect = handle(depend_on_both_abilities)()
-reveal_type(effect)  # revealed type is: Depend[AnotherAbility, None]
+handle_some_ability: Handler[SomeAbility] = ...
+effect = handle_some_ability(depend_on_both_abilities)()
+reveal_type(effect)  #  Revealed type is: Depend[AnotherAbility, None]
 ```
+
+The revealed type indicates that `handle_some_ability` has handled `SomeAbility` of `depend_on_both_abilities`, so it now only depends on `AnotherAbility`.
 
 ## Error Handling
 
@@ -332,13 +334,10 @@ Consequently you can use your type checker to avoid unintentionally unhandled er
 your type checker can see and understand which errors are handled where:
 
 ```python
-def fails_in_multiple_ways() -> Try[FileNotFoundError | PermissionError | IsADirectoryError, str]:
-    ...
-
 def handle_subset_of_errors() -> Try[PermissionError, str]:
-    result = yield from catch(FileNotFoundError, IsADirectoryError)(fails_in_multiple_ways)()
+    result = yield from catch(FileNotFoundError)(read_file)('foo.txt')
     match result:
-        case FileNotFoundError() | IsADirectoryError():
+        case FileNotFoundError():
             return 'default value'
         case _:
             return result
@@ -354,8 +353,8 @@ This means that:
 
 `Need` is a an ability for type-safe dependency injection. By "type-safe" we mean:
 
-- Functions with dependencies can't fail to report a dependency in its type signature without a type error.
-- You can't run effects with dependencies without handling them.
+- Functions with dependencies can't fail to report a dependency in its type signature without a type-checker error.
+- You can't run effects with dependencies without handling them without a type-checker error.
 
 `Need` is defined as:
 
@@ -380,6 +379,12 @@ from stateless import Depend, Need, need
 class Console:
     def print(self, line: str) -> None:
         print(line)
+```
+
+`Need` is used by calling the `need` function:
+
+```python
+from stateless import Need, need
 
 
 def say_hello() -> Depend[Need[Console], None]:
@@ -406,7 +411,7 @@ effect = test_handler()(say_hello)('foo.txt')
 run(effect)
 ```
 
-Our type-checker will likely infer the types `console` to be `MockConsole`, so we have moved the initialization to a function with the annotated return type `Handler[Console`]. Otherwise, our type checker will not be able to infer that the handler in fact handles the `Console` ability of `say_hello`.
+Our type-checker will likely infer the type of`console` to be `MockConsole`, so we have moved the initialization to a function with the annotated return type `Handler[Console`]. Otherwise, our type checker will not be able to infer that the handler in fact handles the `Console` ability of `say_hello`.
 
 ### Async
 The `Async` ability is used to run code asynchronously, either with `asyncio` or `concurrent.futures`.
@@ -436,14 +441,16 @@ from stateless import Async
 def run[R](effect: Effect[Async, Exception, R]) -> R: ...
 ```
 
-The reason `run` does not need the `Async` effect handled is because `stateless` just calls `asyncio.run` to run `asyncio` coroutines when executing effects. If you want to defer execution of coroutines, for example when integrating `stateless` with another framework that manages the event loop, for example an ASGI server, you can use `stateless.run_async` defined as:
+`stateless` has another run function, `run_async`. that gives us a hint how this works:
 
 
 ```python
-async def run_async[R](effect: Effect[Async, Exception, R]) -> R: ...
+from stateless import Async
+
+async def run_async(effect: Effect[Async, Exception, R]) -> R: ...
 ```
 
-(in fact `stateless.run(effect)` just calls `asyncio.run(run_async(effect))`).
+`run_async` simply awaits `asyncio` coroutines yielded by effects. The reason `stateless.run` does not need the `Async` effect handled is because `stateless.run` just calls `asyncio.run(run_async(effect))`.
 
 
 To run effects in other process/threads, use `stateless.fork`, defined as:
@@ -451,6 +458,46 @@ To run effects in other process/threads, use `stateless.fork`, defined as:
 
 ```python
 def fork[**P, R](f: Callable[P, Try[Exception, R]]) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
+```
+
+`stateless.Task` is a type that represents an effect executing in a another process or thread. You can access the result of a task by using `stateless.wait`:
+
+
+```python
+from stateless import fork, wait, Success, Depend, Need, Executor
+
+
+def do_something() -> Success[float]: ...
+
+
+def do_something_async() -> Depend[Need[Executor] | Async, float]:
+    task = yield from fork(do_something)()
+    result = yield from wait(task)
+    return result
+```
+
+`stateless.Executor` is simply a wrapper for `concurrent.futures.Executor`. It exists solely to allow you to handle the `Need[Executor]` ability with type safety:
+
+```python
+from stateless import Executor, supply, run
+
+
+with Executor() as executor:
+    effect = supply(executor)(do_something_async)()
+    run(effect)
+```
+
+If you want fine-grained control over the executor being used, pass it to `stateless.Executor`:
+
+```python
+from concurrent.futures import ProcessPoolExecutor
+
+from stateless import Executor, supply, run
+
+
+with ProcessPoolExecutor as pool:
+    effect = supply(Executor(pool))(do_something_async)()
+    run(effect)
 ```
 
 `fork` will simply call `stateless.run` in the remote process/thread, so all abilities of `f` must be handled before forking.
@@ -481,10 +528,10 @@ A `stateless.Schedule` is a type with an `__iter__` method that returns an effec
 from typing import Protocol, Iterator
 from datetime import timedelta
 
-from stateless import Depend
+from stateless import Depend, Ability
 
 
-class Schedule[A](Protocol):
+class Schedule[A: Ability](Protocol):
     def __iter__(self) -> Depend[A, Iterator[timedelta]]:
         ...
 ```
@@ -497,7 +544,7 @@ Schedules can be used with the `repeat` decorator, which takes schedule as its f
 ```python
 from datetime import timedelta
 
-from stateless import repeat, success, Success, Abilities, run
+from stateless import repeat, success, Success, supply, run
 from stateless.schedule import Recurs, Spaced
 from stateless.time import Time
 
@@ -506,11 +553,11 @@ from stateless.time import Time
 def f() -> Success[str]:
     return success("hi!")
 
-effect = Abilities().add(Time()).handle(f)()
+effect = supply(Time())(f)()
 result = run(effect)
 print(run)  # outputs: ("hi!", "hi!")
 ```
-Effects created through repeat depends on the `Time` ability from `stateless.time` because it needs to sleep between each execution of the effect.
+Effects created through repeat depends on the `Need[stateless.Time]` because it needs to sleep between each execution of the effect.
 
 Schedules are a good example of a pattern used a lot in `stateless`: Classes with an `__iter__` method that returns effects.
 
@@ -526,13 +573,13 @@ def this_works() -> Success[timedelta]:
 
 For example, `repeat` needs to yield from the schedule given as its argument to repeat the decorated function. If the schedule was just a generator it would only be possible to yield from the schedule the first time `f` in this example was called.
 
-`stateless.retry` is like `repeat`, except that it returns succesfully
+`stateless.retry` is like `repeat`, except that it returns successfully.
 when the decorated function yields no errors, or fails when the schedule is exhausted:
 
 ```python
 from datetime import timedelta
 
-from stateless import retry, throw, Try, throw, success, Abilities, run
+from stateless import retry, throw, Try, throw, success, supply, run
 from stateless.schedule import Recurs, Spaced
 from stateless.time import Time
 
@@ -550,7 +597,7 @@ def f() -> Try[RuntimeError, str]:
         return success('Hooray!')
 
 
-effect = Abilities().add(Time()).handel(f)()
+effect = supply(Time())(f)()
 result = run(effect)
 print(result)  # outputs: 'Hooray!'
 ```
@@ -561,24 +608,24 @@ Effects can be memoized using the `stateless.memoize` decorator:
 
 
 ```python
-from stateless import memoize, Depend, Abilities, run
+from stateless import memoize, Depend, supply, run, Need, supply
 from stateless.console import Console, print_line
 
 
 @memoize
-def f() -> Depend[Console, str]:
+def f() -> Depend[Need[Console], str]:
     yield from print_line('f was called')
     return 'done'
 
 
-def g() -> Depend[Console, tuple[str, str]]:
+def g() -> Depend[Need[Console], tuple[str, str]]:
     first = yield from f()
     second = yield from f()
     return first, second
 
 
-effect = Abilities().add(Console()).handle(f)()
-result = run(effect) # outputs: 'f was called' once, even though the effect was yielded twice
+effect = supply(Console())(f)()
+result = run(effect) # outputs: 'f was called' once, even though the effect `f()` was yielded from twice
 
 print(result)  # outputs: ('done', 'done')
 ```
