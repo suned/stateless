@@ -34,6 +34,12 @@ warn_return_any = true
 strict_equality = true
 disallow_any_generics = true
 
+[[tool.mypy.overrides]]
+module = [
+    "cloudpickle",
+]
+ignore_missing_imports = true
+
 [tool.ruff.lint]
 select = ["I", "F", "N", "RUF", "D"]
 ignore = ["D107", "D213", "D203", "D202", "D212"]

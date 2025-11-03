@@ -3,12 +3,13 @@
 import itertools
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Iterator, Protocol, TypeVar
+from typing import Any, Iterator, Protocol, TypeVar
 from typing import NoReturn as Never
 
+from stateless.ability import Ability
 from stateless.effect import Depend, Success, success
 
-A = TypeVar("A", covariant=True)
+A = TypeVar("A", covariant=True, bound=Ability[Any])
 
 
 class Schedule(Protocol[A]):

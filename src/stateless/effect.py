@@ -23,7 +23,7 @@ R = TypeVar("R")
 # type inference is not possible. Specifically
 # type checkers can't distinguish between abilities
 # and errors in Effect types.
-A = TypeVar("A", bound=Ability)
+A = TypeVar("A", bound=Ability[Any])
 E = TypeVar("E", bound=Exception)
 P = ParamSpec("P")
 E2 = TypeVar("E2", bound=Exception)
@@ -134,33 +134,35 @@ class Catch(Generic[E]):
     errors: tuple[Type[E], ...]
 
     @overload
-    def __init__(self: "Catch[Never]"): ...  # pragma: no cover
+    def __init__(self: "Catch[Never]"):
+        ...  # pragma: no cover
 
     @overload
-    def __init__(self, *errors: Type[E]): ...  # pragma: no cover
+    def __init__(self, *errors: Type[E]):
+        ...  # pragma: no cover
 
     def __init__(self, *errors: Type[E]):
         object.__setattr__(self, "errors", errors)
 
     @overload
-    def __call__(
-        self, f: Callable[P, Try[E, R]]
-    ) -> Callable[P, Success[R | E]]: ...  # pragma: no cover
+    def __call__(self, f: Callable[P, Try[E, R]]) -> Callable[P, Success[R | E]]:
+        ...  # pragma: no cover
 
     @overload
     def __call__(  # pyright: ignore[reportOverlappingOverload]
         self, f: Callable[P, Effect[A, E, R]]
-    ) -> Callable[P, Depend[A, R | E]]: ...  # pragma: no cover
+    ) -> Callable[P, Depend[A, R | E]]:
+        ...  # pragma: no cover
 
     @overload
-    def __call__(
-        self, f: Callable[P, Try[E | E2, R]]
-    ) -> Callable[P, Try[E2, E | R]]: ...  # pragma: no cover
+    def __call__(self, f: Callable[P, Try[E | E2, R]]) -> Callable[P, Try[E2, E | R]]:
+        ...  # pragma: no cover
 
     @overload
     def __call__(
         self, f: Callable[P, Effect[A, E2 | E, R]]
-    ) -> Callable[P, Effect[A, E2, R | E]]: ...  # pragma: no cover
+    ) -> Callable[P, Effect[A, E2, R | E]]:
+        ...  # pragma: no cover
 
     def __call__(
         self, f: Callable[P, Effect[A, E2 | E, R]]
@@ -194,11 +196,13 @@ class Catch(Generic[E]):
 
 
 @overload
-def catch() -> Catch[Never]: ...  # pragma: no cover
+def catch() -> Catch[Never]:
+    ...  # pragma: no cover
 
 
 @overload
-def catch(*errors: Type[E]) -> Catch[E]: ...  # pragma: no cover
+def catch(*errors: Type[E]) -> Catch[E]:
+    ...  # pragma: no cover
 
 
 def catch(*errors: Type[E]) -> Catch[E]:
@@ -236,23 +240,28 @@ class Throws(Generic[E2]):
     errors: tuple[Type[E2], ...]
 
     @overload
-    def __call__(self, f: Callable[P, Success[R]]) -> Callable[P, Try[E2, R]]: ...
+    def __call__(self, f: Callable[P, Success[R]]) -> Callable[P, Try[E2, R]]:
+        ...
 
     @overload
     def __call__(  # type: ignore
         self, f: Callable[P, Depend[A, R]]
-    ) -> Callable[P, Effect[A, E2, R]]: ...
+    ) -> Callable[P, Effect[A, E2, R]]:
+        ...
 
     @overload
-    def __call__(self, f: Callable[P, Try[E, R]]) -> Callable[P, Try[E | E2, R]]: ...
+    def __call__(self, f: Callable[P, Try[E, R]]) -> Callable[P, Try[E | E2, R]]:
+        ...
 
     @overload
-    def __call__(
+    def __call__(  # type: ignore
         self, f: Callable[P, Effect[A, E, R]]
-    ) -> Callable[P, Effect[A, E | E2, R]]: ...
+    ) -> Callable[P, Effect[A, E | E2, R]]:
+        ...
 
     @overload
-    def __call__(self, f: Callable[P, R]) -> Callable[P, Try[E2, R]]: ...
+    def __call__(self, f: Callable[P, R]) -> Callable[P, Try[E2, R]]:
+        ...
 
     def __call__(  # type: ignore
         self, f: Callable[P, Effect[Ability[Any], Exception, R] | R]
@@ -266,7 +275,7 @@ class Throws(Generic[E2]):
                 if isinstance(result, Generator):
                     result = yield from result
 
-                return result  # type: ignore
+                return result  # pyright: ignore
             except self.errors as e:  # pyright: ignore
                 return (yield from throw(e))
 
@@ -340,7 +349,8 @@ class Memoize(Effect[A, E, R]):
 @overload
 def memoize(
     f: Callable[P, Effect[A, E, R]],
-) -> Callable[P, Effect[A, E, R]]: ...  # pragma: no cover
+) -> Callable[P, Effect[A, E, R]]:
+    ...  # pragma: no cover
 
 
 @overload
@@ -348,12 +358,11 @@ def memoize(
     *,
     maxsize: int | None = None,
     typed: bool = False,
-) -> Callable[
-    [Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]
-]: ...  # pragma: no cover
+) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E, R]]]:
+    ...  # pragma: no cover
 
 
-def memoize(  # type: ignore
+def memoize(
     f: Callable[P, Effect[A, E, R]] | None = None,
     *,
     maxsize: int | None = None,
@@ -376,7 +385,7 @@ def memoize(  # type: ignore
 
     """
     if f is None:
-        return partial(memoize, maxsize=maxsize, typed=typed)  # type: ignore
+        return partial(memoize, maxsize=maxsize, typed=typed)  # pyright: ignore
 
     @lru_cache(maxsize=maxsize, typed=typed)
     @wraps(f)

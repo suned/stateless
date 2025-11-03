@@ -1,9 +1,9 @@
 from pytest import raises
-
-from stateless import need, supply, Depend, Need, run
+from stateless import Depend, Need, need, run, supply
 from stateless.errors import MissingAbilityError
 
 from tests.utils import run_with_abilities
+
 
 def test_need() -> None:
     effect = need(int)
@@ -24,3 +24,9 @@ def test_need_missing_ability() -> None:
     frame = info.traceback[6]
     assert str(frame.path) == __file__
     assert frame.lineno == test_need_missing_ability.__code__.co_firstlineno + 1
+
+
+def test_missing_ability_with_supply() -> None:
+    with raises(MissingAbilityError):
+        effect = supply("")(lambda: need(int))()
+        run(effect)  # type: ignore

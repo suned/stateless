@@ -1,7 +1,7 @@
 """Functions for working with effects."""
 
 from functools import wraps
-from typing import Callable, Generic, ParamSpec, Tuple, TypeVar
+from typing import Any, Callable, Generic, ParamSpec, Tuple, TypeVar
 
 from stateless.ability import Ability
 from stateless.async_ import Async
@@ -10,8 +10,8 @@ from stateless.need import Need
 from stateless.schedule import Schedule
 from stateless.time import Time, sleep
 
-A = TypeVar("A", bound=Ability)
-A2 = TypeVar("A2", bound=Ability)
+A = TypeVar("A", bound=Ability[Any])
+A2 = TypeVar("A2", bound=Ability[Any])
 E = TypeVar("E", bound=Exception)
 R = TypeVar("R")
 P = ParamSpec("P")

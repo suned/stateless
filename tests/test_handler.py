@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
 from pytest import raises
-from typing_extensions import Never
-
 from stateless import Depend, Effect, Need, need, run, supply
 from stateless.ability import Ability
 from stateless.effect import catch, throws
 from stateless.errors import MissingAbilityError
 from stateless.handler import handle
+from typing_extensions import Never
+
 from tests.utils import run_with_abilities
 
 
@@ -119,10 +119,10 @@ def test_handle() -> None:
     class TestAbility(Ability[None]):
         pass
 
-    def no_annotations(_):
+    def no_annotations(_):  # type: ignore
         pass
 
-    def only_return_annotation(_) -> None:
+    def only_return_annotation(_) -> None:  # type: ignore
         pass
 
     def two_annotations(_: TestAbility, __: str) -> None:
@@ -155,5 +155,5 @@ def test_handle() -> None:
         yield OtherAbility()
 
     with raises(MissingAbilityError):
-        effect = handle(handle_test_ability)(g)()
-        run(effect)  # type: ignore
+        effect_that_fails = handle(handle_test_ability)(g)()
+        run(effect_that_fails)  # type: ignore

@@ -2,7 +2,6 @@ from datetime import timedelta
 from typing import NoReturn as Never
 
 from pytest import raises
-
 from stateless import (
     Effect,
     Success,
@@ -22,6 +21,7 @@ from stateless.functions import RetryError
 from stateless.need import need
 from stateless.schedule import Recurs, Spaced
 from stateless.time import Time
+
 from tests.utils import run_with_abilities
 
 

@@ -58,6 +58,7 @@ def test_wait_coroutine() -> None:
     assert run(f()) == "hi"
 
 
-def test_fork_with_process_executor():
+def test_fork_with_process_executor() -> None:
     with ProcessPoolExecutor() as executor:
-        assert run(supply(Executor(executor))(fork_say_hi)()) == "hi"
+        effect = supply(Executor(executor))(fork_say_hi)()
+        assert run(effect) == "hi"

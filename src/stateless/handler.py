@@ -16,8 +16,8 @@ from stateless.effect import Depend, Effect, Success, Try
 from stateless.errors import UnhandledAbilityError
 
 E = TypeVar("E", bound=Exception)
-A = TypeVar("A", covariant=True, bound=Ability)
-A2 = TypeVar("A2", bound=Ability)
+A = TypeVar("A", covariant=True, bound=Ability[Any])
+A2 = TypeVar("A2", bound=Ability[Any])
 R = TypeVar("R")
 P = ParamSpec("P")
 
@@ -32,11 +32,13 @@ class Handler(Generic[A]):
         ...  # pragma: no cover
 
     @overload
-    def __call__(self, f: Callable[P, Depend[A | A2, R]]) -> Callable[P, Depend[A2, R]]:  # pyright: ignore[reportOverlappingOverload]
+    def __call__(  # pyright: ignore[reportOverlappingOverload]
+        self, f: Callable[P, Effect[A, E, R]]
+    ) -> Callable[P, Try[E, R]]:
         ...  # pragma: no cover
 
     @overload
-    def __call__(self, f: Callable[P, Effect[A, E, R]]) -> Callable[P, Try[E, R]]:
+    def __call__(self, f: Callable[P, Depend[A | A2, R]]) -> Callable[P, Depend[A2, R]]:
         ...  # pragma: no cover
 
     @overload
@@ -59,10 +61,10 @@ class Handler(Generic[A]):
                 while True:
                     match ability_or_error:
                         case Exception() as error:
-                            yield error
+                            yield error  # type: ignore
                         case ability:
                             try:
-                                value = self.handle(ability)
+                                value = self.handle(ability)  # type: ignore
                             except UnhandledAbilityError:
                                 # defer to handlers up the call stack
                                 value = yield ability  # type: ignore
@@ -73,7 +75,7 @@ class Handler(Generic[A]):
         return decorator
 
 
-def handle(f: Callable[[A], Any]) -> Handler[A]:
+def handle(f: Callable[[A2], Any]) -> Handler[A2]:
     d = get_type_hints(f)
     if len(d) == 0:
         raise ValueError(f"Handler function {f} was not annotated.")
@@ -94,7 +96,7 @@ def handle(f: Callable[[A], Any]) -> Handler[A]:
         )
     t = list(d.values())[0]
 
-    def on(ability: A) -> Any:
+    def on(ability: A2) -> Any:
         if not isinstance(ability, t):
             raise UnhandledAbilityError()
         return f(ability)
