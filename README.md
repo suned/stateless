@@ -424,7 +424,7 @@ to use the result of an `asyncio` coroutine in an effect, use the `stateless.wai
 ```python
 from typing import Awaitable
 
-from stateless import Depend
+from stateless import Depend, Async
 
 
 def wait[R](target: Awaitable[R]) -> Depend[Async, R]: ...
