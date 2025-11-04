@@ -192,12 +192,6 @@ effect = handle(greet)(hello_world)()
 reveal_type(effect)  # revealed type is: Effect[Never, Never, None]
 ```
 
-> [!NOTE]
-> `stateless.handle` depends on type annotations of the handler function to match abilities with handler functions. To use `stateless.handle` you must annotate the argument of the handler function with an appropriate ability.
->
-> `stateless.handle` just uses `isinstance` to match abilities
-> with handlers, so handling abilities with type parameters may not work as expected.
-
 We can see in the revealed type how `handle(greet)` has eliminated the `Greet` ability from the effect returned by `hello_world`, and the type is now `Never`, meaning the new effect does not require any abilities.
 
 To run effects you'll use `stateless.run`. Its type signature is:
