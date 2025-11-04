@@ -5,3 +5,7 @@ test:
 
 lint:
     pre-commit run --all-files
+
+
+benchmark:
+    pytest --benchmark-compare benchmarks.py
