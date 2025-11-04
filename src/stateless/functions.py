@@ -1,7 +1,7 @@
 """Functions for working with effects."""
 
 from functools import wraps
-from typing import Any, Callable, Generic, ParamSpec, Tuple, TypeVar
+from typing import Any, Callable, Generic, ParamSpec, Tuple, Type, TypeVar
 
 from stateless.ability import Ability
 from stateless.async_ import Async
@@ -114,3 +114,21 @@ def retry(
         return wrapper
 
     return decorator
+
+
+def as_type(t: Type[R]) -> Callable[[R], R]:
+    """
+    Create an identity function with additional type information.
+
+    Args:
+    ----
+        t: The (super)type to consider the result of the identity function
+    Returns:
+        The identity function.
+
+    """
+
+    def _(v: R) -> R:
+        return v
+
+    return _

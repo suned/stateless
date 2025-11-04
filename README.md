@@ -158,9 +158,9 @@ def hello_world() -> Effect[Greet, Never, None]:
     print(greeting)
 ```
 
-When `hello_world` returns an `Effect[Greet, Never, None]`, it means that it depends on the `Greet` ability (`A` is parameterized with `Greet`). It can't fail (`E` is parameterized with `Never`), and it doesn't produce a value (`R` is parameterized with `None`).
+When `hello_world` returns an `Effect[Greet, Never, None]`, it means that it depends on the `Greet` ability (`A` is parameterized with `Greet`). It doesn't produce errors (`E` is parameterized with `Never`), and it doesn't return a value (`R` is parameterized with `None`).
 
-To run an `Effect` that depends on abilities, you need to handle all of the abilities of that effect. Abilities are handled using `stateless.Handler`, defined as:
+To run an `Effect` that depends on abilities, you need to handle all of the abilities yielded by that effect. Abilities are handled using `stateless.Handler`, defined as:
 
 ```python
 from stateless import Ability, Effect
@@ -274,14 +274,14 @@ from stateless import Effect, Try
 
 
 def throws[E2: Exception, E: Exception, A: Ability, R](
-    *errors: Type[E2],
+    *errors: Type[E],
 ) -> Callable[
-    [Callable[P, Effect[A, E, R] | R]],
+    [Callable[P, Effect[A, E2, R] | R]],
     Callable[P, Effect[A, E | E2, R] | Try[E2, R]]
 ]:
     ...
 ```
-In words, `throws` catches exceptions of type `E2`, and yields them.
+In words, `throws` returns a decorator that catches exceptions of type `E` raised by the decorated function, and yields them.
 
 
 Let's use `throws` to model the potential errors when reading a file.
@@ -315,7 +315,7 @@ def catch[**P, A, E: Exception, E2: Exception, R](
 
 In words, the `catch` decorator catches errors of type `E` and moves the error from the error type `E` of the `Effect` produced by the decorated function, to the result type `R` of the effect of the return function.
 
-This means you can access the potential errors directly in your code:
+For example:
 
 
 ```python
@@ -357,21 +357,20 @@ This means that:
 
 ### Need
 
-`Need` is a an ability for type-safe dependency injection. By "type-safe" we mean:
+`Need` is an ability for type-safe dependency injection. By "type-safe" we mean:
 
 - Functions with dependencies can't fail to report a dependency in its type signature without a type-checker error.
 - You can't run effects with dependencies without handling them without a type-checker error.
 
-`Need` is defined as:
+`Need` is used by calling the `need` function. Its signature is:
 
 ```python
 from typing import Type
 
-from stateless import Ability
+from stateless import Need, Depend
 
 
-class Need[T](Ability[T]):
-    t: Type[T]
+def need[T](t: Type[T]) -> Depend[Need[T], T]: ...
 ```
 
 `T` could be anything, but will often be types that can perform side-effects.
@@ -385,12 +384,6 @@ from stateless import Depend, Need, need
 class Console:
     def print(self, line: str) -> None:
         print(line)
-```
-
-`Need` is used by calling the `need` function:
-
-```python
-from stateless import Need, need
 
 
 def say_hello() -> Depend[Need[Console], None]:
@@ -399,32 +392,46 @@ def say_hello() -> Depend[Need[Console], None]:
 ```
 
 A major purpose of dependency injection is to vary the injected ability to change the behavior of the effect. For example, we
-might want to change the behavior of `say_hello` in tests:
+might want to change the behavior of `say_hello` in tests. Lets define a subtype of `Console` to use in a test:
 
 
 ```python
 class MockConsole(Console):
     def print(self, line: str) -> None:
         pass
+```
+When trying to handle `Need[Console]` with `supply(MockConsole())`, you may need to explicitly tell your type checker that `supply(MockConsole())` has type `Handler[Console]`. For some type checkers this can be done with an explicit annotation. If you use a type checker that uses local type narrowing however, such as pyright, this is harder than you might expect.
+
+To assist with type inference for type checkers with local type narrowing, stateless supplies a utility function `as_type`, that tells your type checker to treat a subtype as a supertype in a certain context.
+
+Lets use `as_type` with `supply`:
+```python
+from stateless import as_type, supply
 
 
-def test_handler() -> Handler[Need[Console]]:
-    console = MockConsole()
-    return supply(console)
-
-
-effect = test_handler()(say_hello)('foo.txt')
+console = as_type(Console)(MockConsole())
+effect = supply(console)(say_hello)('foo.txt')
 run(effect)
 ```
-
-Our type-checker will likely infer the type of`console` to be `MockConsole`, so we have moved the initialization to a function with the annotated return type `Handler[Need[Console]]`. Otherwise, our type checker will not be able to infer that the handler in fact handles the `Console` ability of `say_hello`.
+Using `as_type`, our type checker has correctly inferred that the `Need[Console]` ability yielded by `say_hello` was eliminated by `supply(console)`.
 
 ### Async
 The `Async` ability is used to run code asynchronously, either with `asyncio` or `concurrent.futures`.
 
-to use the result of an `asyncio` coroutine, use the `stateless.wait` function:
+to use the result of an `asyncio` coroutine in an effect, use the `stateless.wait` function. Its defined as:
 
 
+```python
+from typing import Awaitable
+
+from stateless import Depend
+
+
+def wait[R](target: Awaitable[R]) -> Depend[Async, R]: ...
+```
+In words, `wait` translates an `Awaitable` into an `Effect` that depends on the `Async` ability.
+
+For example:
 ```python
 from stateless import wait, Async, Depend
 
@@ -453,6 +460,7 @@ def run[R](effect: Effect[Async, Exception, R]) -> R: ...
 ```python
 from stateless import Async
 
+
 async def run_async(effect: Effect[Async, Exception, R]) -> R: ...
 ```
 
@@ -464,17 +472,19 @@ To run effects in other process/threads, use `stateless.fork`, defined as:
 
 
 ```python
+from concurrent.futures import Executor
 from stateless import Task, Depend, Need, Executor, Try
 
 
 def fork[**P, R](f: Callable[P, Try[Exception, R]]) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
 ```
 
-`stateless.Task` is a type that represents an effect executing in a another process or thread. You can access the result of a task by using `stateless.wait`:
+`stateless.Task` is a type that represents an effect executing in a another process or thread. `stateless.wait` is in fact overloaded to allow you to access the result of a task:
 
 
 ```python
-from stateless import fork, wait, Success, Depend, Need, Executor
+from concurrent.futures import Executor
+from stateless import fork, wait, Success, Depend, Need, Async
 
 
 def do_something() -> Success[float]: ...
@@ -486,27 +496,15 @@ def do_something_async() -> Depend[Need[Executor] | Async, float]:
     return result
 ```
 
-`stateless.Executor` is simply a wrapper for `concurrent.futures.Executor`. It exists solely to allow you to handle the `Need[Executor]` ability with type safety:
+To handle the `Need[Executor]` ability yielded by `fork`, use `concurrent.futures.ThreadPoolExecutor` or `concurrent.futures.ProcessPoolExecutor`. Since these are subtypes of `concurrent.futures.Executor`, you may need to use `stateless.as_type` depending on the type inference algorithm used by your type checker:
 
 ```python
-from stateless import Executor, supply, run
+from concurrent.futures import ThreadPoolExecutor, Executor
+from stateless import as_type, supply, run
 
-
-with Executor() as executor:
+executor = as_type(Executor)(ThreadPoolExecutor())
+with executor:
     effect = supply(executor)(do_something_async)()
-    run(effect)
-```
-
-If you want fine-grained control over the executor being used, pass it to `stateless.Executor`:
-
-```python
-from concurrent.futures import ProcessPoolExecutor
-
-from stateless import Executor, supply, run
-
-
-with ProcessPoolExecutor as pool:
-    effect = supply(Executor(pool))(do_something_async)()
     run(effect)
 ```
 

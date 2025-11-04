@@ -47,7 +47,6 @@ ignore = ["D107", "D213", "D203", "D202", "D212"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["D100", "D101", "D102", "D103", "D104", "D105", "D107"]
 
-
 [tool.coverage.report]
 exclude_also = [
     "@overload"

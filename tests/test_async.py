@@ -1,12 +1,13 @@
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import Executor, ProcessPoolExecutor
+from concurrent.futures.thread import ThreadPoolExecutor
 from threading import Event
 
 from stateless import (
     Async,
     Depend,
-    Executor,
     Need,
     Success,
+    as_type,
     fork,
     run,
     success,
@@ -26,7 +27,7 @@ def fork_say_hi() -> Depend[Need[Executor] | Async, str]:
 
 
 def test_fork_and_wait() -> None:
-    with Executor() as executor:
+    with as_type(Executor)(ThreadPoolExecutor()) as executor:
         assert run(supply(executor)(fork_say_hi)()) == "hi"
 
 
@@ -40,7 +41,7 @@ def test_fork_still_runs_when_not_waited() -> None:
     def g() -> Depend[Need[Executor], None]:
         yield from fork(f)()
 
-    with Executor() as executor:
+    with as_type(Executor)(ThreadPoolExecutor()) as executor:
         effect = supply(executor)(g)()
         run(effect)
 
@@ -59,6 +60,6 @@ def test_wait_coroutine() -> None:
 
 
 def test_fork_with_process_executor() -> None:
-    with ProcessPoolExecutor() as executor:
-        effect = supply(Executor(executor))(fork_say_hi)()
+    with as_type(Executor)(ProcessPoolExecutor()) as executor:
+        effect = supply(executor)(fork_say_hi)()
         assert run(effect) == "hi"

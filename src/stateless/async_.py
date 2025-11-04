@@ -1,10 +1,9 @@
 """Module for asyncio integration and running effects in parallel."""
 
 import asyncio
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import Executor, ProcessPoolExecutor
 from dataclasses import dataclass
 from functools import wraps
-from types import TracebackType
 from typing import (
     Any,
     Awaitable,
@@ -59,44 +58,6 @@ class Async(Ability[Any]):
     awaitable: Awaitable[Any]
 
 
-# this exists only for type inference purposes,
-# specifally that `Need[Executor]` can be
-# eliminated by handling the need ability
-# with either a Process- or ThreadPoolExecutor
-@dataclass(frozen=True, init=False)
-class Executor:
-    """
-    Wrapper for `concurrent.futures.Executor`.
-
-    Exists mainly for improved type inference when handling
-    `Need[Executor]`.
-    """
-
-    executor: ThreadPoolExecutor | ProcessPoolExecutor
-
-    def __init__(
-        self, executor: ThreadPoolExecutor | ProcessPoolExecutor | None = None
-    ):
-        if not executor:
-            executor = ThreadPoolExecutor()
-
-        object.__setattr__(self, "executor", executor)
-
-    def __enter__(self) -> "Executor":
-        """Call `__enter__` on the wrapped executor."""
-        self.executor.__enter__()
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        """Call `__exit__` on the wrapped executor."""
-        self.executor.__exit__(exc_type, exc_val, exc_tb)
-
-
 @overload
 def fork(
     f: Callable[P, Success[R]],
@@ -146,11 +107,11 @@ def fork(
 
         executor = yield from need(Executor)
         loop = asyncio.get_running_loop()
-        if isinstance(executor.executor, ProcessPoolExecutor):
+        if isinstance(executor, ProcessPoolExecutor):
             payload = cloudpickle.dumps((f, args, kwargs))
-            future = loop.run_in_executor(executor.executor, _process_target, payload)
+            future = loop.run_in_executor(executor, _process_target, payload)
         else:
-            future = loop.run_in_executor(executor.executor, thread_target)  # type: ignore
+            future = loop.run_in_executor(executor, thread_target)  # type: ignore
         return Task(future)
 
     return decorator
