@@ -132,6 +132,7 @@ from dataclasses import dataclass
 
 from stateless import Ability
 
+
 @dataclass
 class Greet(Ability[str]):
     name: str
