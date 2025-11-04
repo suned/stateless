@@ -17,6 +17,7 @@ As a result, "business logic" code never performs side-effects, which makes it e
 
 ```python
 from typing import Any, Never
+
 from stateless import Effect, Need, need, throws, catch, run
 
 
@@ -84,6 +85,7 @@ run(effect)
 
 ```python
 from typing import Any, Generator
+
 from stateless import Ability
 
 
