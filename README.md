@@ -95,7 +95,7 @@ In other words, an `Effect` is a generator that can yield values of type `A` or 
 
 -  The type parameter `A` stands for _"Ability"_. This is the type of value, or types of values, that must be handled in order for the effect to produce its result.
 
- - The type parameter `E` stands for _"Error"_. This the type of errors that an effect might fail with.
+ - The type parameter `E` stands for _"Error"_. This the type of error, or types of errors, that an effect might fail with.
 
  - The type parameter `R` stands for _"Result"_. This is the type of value that an `Effect` will produce if no errors occur.
 
