@@ -1,3 +1,5 @@
+import sys
+
 from pytest import raises
 from stateless import Depend, Need, need, run, supply
 from stateless.errors import MissingAbilityError
@@ -21,7 +23,8 @@ def test_need_missing_ability() -> None:
     assert str(frame.path) == __file__
     assert frame.lineno == test_need_missing_ability.__code__.co_firstlineno + 4
 
-    frame = info.traceback[6]
+    index = 6 if sys.version_info > (3, 11) else 5
+    frame = info.traceback[index]
     assert str(frame.path) == __file__
     assert frame.lineno == test_need_missing_ability.__code__.co_firstlineno + 1
 

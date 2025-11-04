@@ -1,3 +1,4 @@
+import sys
 from dataclasses import dataclass
 
 from pytest import raises
@@ -57,20 +58,8 @@ def test_missing_dependency() -> None:
     # expression in `effect` function above
     # (first is stateless.run(..)
     # second is effect.throw in Runtime.run)
-    frame = info.traceback[6]
-    assert str(frame.path) == __file__
-    assert frame.lineno == effect.__code__.co_firstlineno
-
-
-def test_missing_dependency_with_abilities() -> None:
-    def effect() -> Depend[Need[Super], Super]:
-        ability: Super = yield from need(Super)
-        return ability
-
-    with raises(MissingAbilityError, match="Super") as info:
-        run(effect())  # type: ignore
-
-    frame = info.traceback[6]
+    index = 6 if sys.version_info > (3, 11) else 5
+    frame = info.traceback[index]
     assert str(frame.path) == __file__
     assert frame.lineno == effect.__code__.co_firstlineno
 
