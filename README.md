@@ -561,7 +561,8 @@ from stateless.time import Time
 def f() -> Success[str]:
     return success("hi!")
 
-effect = supply(Time())(f)()
+time = Time()
+effect = supply(time)(f)()
 result = run(effect)
 print(run)  # outputs: ("hi!", "hi!")
 ```
@@ -604,8 +605,8 @@ def f() -> Try[RuntimeError, str]:
     else:
         return success('Hooray!')
 
-
-effect = supply(Time())(f)()
+time = Time()
+effect = supply(time)(f)()
 result = run(effect)
 print(result)  # outputs: 'Hooray!'
 ```
@@ -631,8 +632,8 @@ def g() -> Depend[Need[Console], tuple[str, str]]:
     second = yield from f()
     return first, second
 
-
-effect = supply(Console())(f)()
+console = Console()
+effect = supply(console)(f)()
 result = run(effect) # outputs: 'f was called' once, even though the effect `f()` was yielded from twice
 
 print(result)  # outputs: ('done', 'done')
