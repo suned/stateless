@@ -351,7 +351,7 @@ def handle_subset_of_errors() -> Try[PermissionError, str]:
 
 This means that:
 - You can't neglect to report an error in the signature for `handle_subset_of_errors` without a type-checker error, since your type checker can tell that `yield from catch(...)(fails_in_multiple_ways)` will still yield `PermissionError`
-- You can't neglect to handle errors in your code without a type-checker error because your type checker can tell that `result` may be 2 different errors or a string.
+- You can't neglect to handle errors in your code without a type-checker error because your type checker can tell that `result` may be `FileNotFoundError` or `str`.
 
 ## Built-in Abilities
 
