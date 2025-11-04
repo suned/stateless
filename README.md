@@ -93,7 +93,7 @@ type Effect[A: Ability, E: Exception, R] = Generator[A | E, Any, R]
 ```
 In other words, an `Effect` is a generator that can yield values of type `A` or exceptions of type `E`, can be sent anything, and returns results of type `R`. Let's break that down a bit further:
 
--  The type parameter `A` stands for _"Ability"_. This is the type of value, or types of values, that must be handled in order the effect to produce its result.
+-  The type parameter `A` stands for _"Ability"_. This is the type of value, or types of values, that must be handled in order for the effect to produce its result.
 
  - The type parameter `E` stands for _"Error"_. This the type of errors that an effect might fail with.
 
