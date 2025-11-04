@@ -1,14 +1,17 @@
 """Functions for working with effects."""
 
 from functools import wraps
-from typing import Callable, Generic, ParamSpec, Tuple, TypeVar
+from typing import Any, Callable, Generic, ParamSpec, Tuple, Type, TypeVar
 
+from stateless.ability import Ability
+from stateless.async_ import Async
 from stateless.effect import Effect, catch_all, throw
+from stateless.need import Need
 from stateless.schedule import Schedule
 from stateless.time import Time, sleep
 
-A = TypeVar("A")
-A2 = TypeVar("A2")
+A = TypeVar("A", bound=Ability[Any])
+A2 = TypeVar("A2", bound=Ability[Any])
 E = TypeVar("E", bound=Exception)
 R = TypeVar("R")
 P = ParamSpec("P")
@@ -18,7 +21,7 @@ def repeat(
     schedule: Schedule[A],
 ) -> Callable[
     [Callable[P, Effect[A2, E, R]]],
-    Callable[P, Effect[A | A2 | Time, E, Tuple[R, ...]]],
+    Callable[P, Effect[A | A2 | Need[Time] | Async, E, Tuple[R, ...]]],
 ]:
     """
     Repeat an effect according to a schedule.
@@ -38,11 +41,11 @@ def repeat(
 
     def decorator(
         f: Callable[P, Effect[A2, E, R]],
-    ) -> Callable[P, Effect[A | A2 | Time, E, Tuple[R, ...]]]:
+    ) -> Callable[P, Effect[A | A2 | Need[Time] | Async, E, Tuple[R, ...]]]:
         @wraps(f)
         def wrapper(
             *args: P.args, **kwargs: P.kwargs
-        ) -> Effect[A | A2 | Time, E, Tuple[R, ...]]:
+        ) -> Effect[A | A2 | Need[Time] | Async, E, Tuple[R, ...]]:
             deltas = yield from schedule
             results = []
             for interval in deltas:
@@ -70,7 +73,7 @@ def retry(
     schedule: Schedule[A],
 ) -> Callable[
     [Callable[P, Effect[A2, E, R]]],
-    Callable[P, Effect[A | A2 | Time, RetryError[E], R]],
+    Callable[P, Effect[A | A2 | Need[Time] | Async, RetryError[E], R]],
 ]:
     """
     Retry an effect according to a schedule.
@@ -91,11 +94,11 @@ def retry(
 
     def decorator(
         f: Callable[P, Effect[A2, E, R]],
-    ) -> Callable[P, Effect[A | A2 | Time, RetryError[E], R]]:
+    ) -> Callable[P, Effect[A | A2 | Need[Time] | Async, RetryError[E], R]]:
         @wraps(f)
         def wrapper(
             *args: P.args, **kwargs: P.kwargs
-        ) -> Effect[A | A2 | Time, RetryError[E], R]:
+        ) -> Effect[A | A2 | Need[Time] | Async, RetryError[E], R]:
             deltas = yield from schedule
             errors = []
             for interval in deltas:
@@ -111,3 +114,21 @@ def retry(
         return wrapper
 
     return decorator
+
+
+def as_type(t: Type[R]) -> Callable[[R], R]:
+    """
+    Create an identity function with additional type information.
+
+    Args:
+    ----
+        t: The (super)type to consider the result of the identity function
+    Returns:
+        The identity function.
+
+    """
+
+    def _(v: R) -> R:
+        return v
+
+    return _

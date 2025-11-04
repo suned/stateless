@@ -1,6 +1,7 @@
 """Files ability and ability helpers."""
 
 from stateless.effect import Depend, throws
+from stateless.need import Need, need
 
 
 class Files:
@@ -24,7 +25,7 @@ class Files:
 
 
 @throws(FileNotFoundError, PermissionError)
-def read_file(path: str) -> Depend[Files, str]:
+def read_file(path: str) -> Depend[Need[Files], str]:
     """
     Read a file.
 
@@ -37,5 +38,5 @@ def read_file(path: str) -> Depend[Files, str]:
         The contents of the file as an effect.
 
     """
-    files: Files = yield Files
+    files: Files = yield from need(Files)
     return files.read_file(path)

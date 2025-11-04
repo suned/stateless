@@ -16,3 +16,13 @@ runs:
     - name: run tests
       shell: bash
       run: poetry run just test
+    - name: generate report
+      if: failure()
+      shell: bash
+      run: poetry run coverage html
+    - name: upload report
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: py-${{ inputs.python-version }}-${{ github.sha }}-coverage-report
+        path: htmlcov/

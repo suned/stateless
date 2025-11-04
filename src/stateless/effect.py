@@ -1,38 +1,72 @@
 """Contains the Effect type and core functions for working with effects."""
 
+from __future__ import annotations
+
+import asyncio
 import sys
 from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import lru_cache, partial, wraps
 from types import TracebackType
-from typing import Any, Callable, Generic, Type, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Type, TypeVar, cast, overload
 
 from typing_extensions import Never, ParamSpec, TypeAlias
 
-from stateless.constants import PARALLEL_SENTINEL
+from stateless.ability import Ability
 from stateless.errors import MissingAbilityError
 
+if TYPE_CHECKING:
+    from stateless.async_ import Async  # pragma: no cover
+
 R = TypeVar("R")
-A = TypeVar("A")
+# A is bound to Ability since if A is completely unbound
+# type inference is not possible. Specifically
+# type checkers can't distinguish between abilities
+# and errors in Effect types.
+A = TypeVar("A", bound=Ability[Any])
 E = TypeVar("E", bound=Exception)
 P = ParamSpec("P")
 E2 = TypeVar("E2", bound=Exception)
 
-Effect: TypeAlias = Generator[Type[A] | E, Any, R]
-Depend: TypeAlias = Generator[Type[A], Any, R]
-Success: TypeAlias = Generator[Type[Never], Any, R]
-Try: TypeAlias = Generator[Type[Never] | E, Any, R]
+Effect: TypeAlias = Generator[A | E, Any, R]
+Depend: TypeAlias = Generator[A, Any, R]
+Success: TypeAlias = Generator[Never, Any, R]
+Try: TypeAlias = Generator[E, Any, R]
 
 
-class NoResultError(Exception):
-    """Raised when an effect has no result.
-
-    If this error is raised to user code
-    it should be considered a bug in stateless.
+async def run_async(effect: Effect[Async, Exception, R]) -> R:
     """
+    Run an effect asynchronously.
+
+    Args:
+    ----
+        effect: The effect to run
+    Returns:
+        The result of running `effect`.
+
+    """
+    from stateless.async_ import Async
+
+    try:
+        ability_or_error = next(effect)
+        while True:
+            match ability_or_error:
+                case Async(awaitable):
+                    v = await awaitable
+                    ability_or_error = effect.send(v)
+                case Exception() as error:
+                    # at this point this is an exception
+                    # not handled with stateless.catch anywhere
+                    ability_or_error = effect.throw(error)
+                case ability:
+                    # At this point all abilities should be handled,
+                    # so any ability request indicates a missing ability
+                    ability_or_error = effect.throw(MissingAbilityError(ability))
+    except StopIteration as e:
+        return cast(R, e.value)
 
 
-def run(effect: Try[Exception, R]) -> R:
+def run(effect: Effect[Async, Exception, R]) -> R:
     """
     Run an effect.
 
@@ -45,22 +79,7 @@ def run(effect: Try[Exception, R]) -> R:
         The result of running `effect`.
 
     """
-    while True:
-        try:
-            ability_or_error = next(effect)
-            match ability_or_error:
-                case sentinel if sentinel == PARALLEL_SENTINEL:
-                    effect.send(())
-                case Exception() as error:
-                    # at this point this is an exception
-                    # not handled with stateless.catch anywhere
-                    effect.throw(error)
-                case ability_type:
-                    # At this point all abilities should be handled,
-                    # so any ability request indicates a missing ability
-                    effect.throw(MissingAbilityError(ability_type))
-        except StopIteration as e:
-            return cast(R, e.value)
+    return asyncio.run(run_async(effect))
 
 
 @dataclass(frozen=True)
@@ -84,7 +103,7 @@ class SuccessEffect(Success[R]):
         ) -> Never:
             """Throw an exception in this effect."""
             raise exc_type
-    else:
+    else:  # pragma: no cover
 
         def throw(self, value: Exception, /) -> Never:  # type: ignore
             """Throw an exception in this effect."""
@@ -158,7 +177,7 @@ class Catch(Generic[E]):
         ...  # pragma: no cover
 
     @overload
-    def __call__(self, f: Callable[P, Try[E | E2, R]]) -> Callable[P, Try[E2, R]]:
+    def __call__(self, f: Callable[P, Try[E | E2, R]]) -> Callable[P, Try[E2, E | R]]:
         ...  # pragma: no cover
 
     @overload
@@ -238,29 +257,71 @@ def catch_all(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Depend[A, E | R]]:
     return Catch(Exception)(f)  # type: ignore
 
 
-def depend(ability: Type[A]) -> Depend[A, A]:
-    """
-    Create an effect that yields an ability and returns the ability sent from the runtime.
+@dataclass(frozen=True)
+class Throws(Generic[E2]):
+    """Provides improved type inference for `throws`."""
 
-    Args:
-    ----
-        ability: The ability to yield.
+    errors: tuple[Type[E2], ...]
 
-    Returns:
-    -------
-        An effect that yields the ability and returns the ability sent from the runtime.
+    @overload
+    def __call__(self, f: Callable[P, Success[R]]) -> Callable[P, Try[E2, R]]:
+        ...
 
-    """
-    try:
-        a = yield ability
-    except MissingAbilityError as e:
-        raise MissingAbilityError(*e.args) from None
-    return cast(A, a)
+    @overload
+    def __call__(  # type: ignore
+        self, f: Callable[P, Depend[A, R]]
+    ) -> Callable[P, Effect[A, E2, R]]:
+        ...
+
+    @overload
+    def __call__(self, f: Callable[P, Try[E, R]]) -> Callable[P, Try[E | E2, R]]:
+        ...
+
+    @overload
+    def __call__(  # type: ignore
+        self, f: Callable[P, Effect[A, E, R]]
+    ) -> Callable[P, Effect[A, E | E2, R]]:
+        ...
+
+    @overload
+    def __call__(self, f: Callable[P, R]) -> Callable[P, Try[E2, R]]:
+        ...
+
+    def __call__(  # type: ignore
+        self, f: Callable[P, Effect[Ability[Any], Exception, R] | R]
+    ) -> Effect[Ability[Any], Exception, R]:
+        """
+        Decorate `f` as to except any instance of `errors` and yield.
+
+        Args:
+        ----
+            f: The function to decorate.
+
+        Returns:
+        -------
+            `f` decorated as to except exceptions and yield them.
+
+        """
+
+        @wraps(f)
+        def decorator(
+            *args: P.args, **kwargs: P.kwargs
+        ) -> Effect[Ability[Any], Exception, R]:
+            try:
+                result = f(*args, **kwargs)
+                if isinstance(result, Generator):
+                    result = yield from result
+
+                return result  # pyright: ignore
+            except self.errors as e:  # pyright: ignore
+                return (yield from throw(e))
+
+        return decorator  # type: ignore
 
 
 def throws(
     *errors: Type[E2],
-) -> Callable[[Callable[P, Effect[A, E, R]]], Callable[P, Effect[A, E | E2, R]]]:
+) -> Throws[E2]:
     """
     Decorate functions returning effects by catching exceptions of a certain type and yields them as an effect.
 
@@ -273,18 +334,7 @@ def throws(
         A decorator that catches exceptions of a certain type from functions returning effects and yields them as an effect.
 
     """
-
-    def decorator(f: Callable[P, Effect[A, E, R]]) -> Callable[P, Effect[A, E | E2, R]]:
-        @wraps(f)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Effect[A, E | E2, R]:
-            try:
-                return (yield from f(*args, **kwargs))
-            except errors as e:  # pyright: ignore
-                return (yield from throw(e))
-
-        return wrapper
-
-    return decorator
+    return Throws(errors)
 
 
 @dataclass(frozen=True)
@@ -294,7 +344,7 @@ class Memoize(Effect[A, E, R]):
     effect: Effect[A, E, R]
     _memoized_result: R | None = field(init=False, default=None)
 
-    def send(self, value: A) -> Type[A] | E:
+    def send(self, value: A) -> A | E:
         """Send a value to the effect."""
 
         if self._memoized_result is not None:
@@ -313,7 +363,7 @@ class Memoize(Effect[A, E, R]):
             error: BaseException | object | None = None,
             exc_tb: TracebackType | None = None,
             /,
-        ) -> Type[A] | E:
+        ) -> A | E:
             """Throw an exception into the effect."""
 
             try:
@@ -321,9 +371,9 @@ class Memoize(Effect[A, E, R]):
             except StopIteration as e:
                 object.__setattr__(self, "_memoized_result", e.value)
                 raise e
-    else:
+    else:  # pragma: no cover
 
-        def throw(self, value: Exception, /) -> Type[A] | E:  # type: ignore
+        def throw(self, value: Exception, /) -> A | E:  # type: ignore
             """Throw an exception into the effect."""
 
             try:
@@ -349,7 +399,7 @@ def memoize(
     ...  # pragma: no cover
 
 
-def memoize(  # type: ignore
+def memoize(
     f: Callable[P, Effect[A, E, R]] | None = None,
     *,
     maxsize: int | None = None,
@@ -372,7 +422,7 @@ def memoize(  # type: ignore
 
     """
     if f is None:
-        return partial(memoize, maxsize=maxsize, typed=typed)  # type: ignore
+        return partial(memoize, maxsize=maxsize, typed=typed)  # pyright: ignore
 
     @lru_cache(maxsize=maxsize, typed=typed)
     @wraps(f)

@@ -12,7 +12,7 @@
         {
           devShells.default = pkgs.mkShell {
             packages = [
-              pkgs.python312
+              pkgs.python313
               pkgs.just
               pkgs.poetry
             ];
