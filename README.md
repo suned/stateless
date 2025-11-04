@@ -190,10 +190,10 @@ def greet(ability: Greet) -> str:
 
 
 effect = handle(greet)(hello_world)()
-reveal_type(effect)  # revealed type is: Effect[Never, Never, None]
+reveal_type(effect)  # revealed type is: Success[None]
 ```
 
-We can see in the revealed type how `handle(greet)` has eliminated the `Greet` ability from the effect returned by `hello_world`, and the type is now `Never`, meaning the new effect does not require any abilities.
+We can see in the revealed type how `handle(greet)` has eliminated the `Greet` ability from the effect returned by `hello_world`, so that it is now a `Success[None]` (or `Effect[Never, Never, None]`), meaning the new effect does not require any abilities.
 
 To run effects you'll use `stateless.run`. Its type signature is:
 
@@ -408,7 +408,7 @@ class MockConsole(Console):
         pass
 
 
-def test_handler() -> Handler[Console]:
+def test_handler() -> Handler[Need[Console]]:
     console = MockConsole()
     return supply(console)
 
@@ -417,7 +417,7 @@ effect = test_handler()(say_hello)('foo.txt')
 run(effect)
 ```
 
-Our type-checker will likely infer the type of`console` to be `MockConsole`, so we have moved the initialization to a function with the annotated return type `Handler[Console`]. Otherwise, our type checker will not be able to infer that the handler in fact handles the `Console` ability of `say_hello`.
+Our type-checker will likely infer the type of`console` to be `MockConsole`, so we have moved the initialization to a function with the annotated return type `Handler[Need[Console]]`. Otherwise, our type checker will not be able to infer that the handler in fact handles the `Console` ability of `say_hello`.
 
 ### Async
 The `Async` ability is used to run code asynchronously, either with `asyncio` or `concurrent.futures`.
