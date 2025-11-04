@@ -118,9 +118,13 @@ type Success[R] = Effect[Never, Never, R]         # for effects that don't fail 
 Lets define a simple ability. `stateless.Ability` is defined as:
 
 ```python
+from typing import Self
+
+
 class Ability[R]:
-    ...
+    def __iter__(self: Self) -> Generator[Self, R, R]: ...
 ```
+
 The `R` type parameter represents the expected result of handling the effect. For example:
 
 ```python
@@ -135,6 +139,11 @@ class Greet(Ability[str]):
 
 When `Greet` inherits from `Ability[str]`, it means that when a function yields an instance of `Greet`, the function should expect that the result of handling `Greet` has type `str`.
 
+You may recall that the "send" type of `stateless.Effect` is `Any`. This is because functions using effects may depend on multiple abilities that return different types of values when handled,
+so in general we can't say what the "send" type should be.
+
+The `Abilities.__iter__` method is a way to get around this. The send and return types are `R`, which allows your type-checker to correctly infer the type of handling an ability by using `yield from`.
+
 Let's use `Greet`:
 
 ```python
@@ -144,7 +153,7 @@ from stateless import Effect
 
 
 def hello_world() -> Effect[Greet, Never, None]:
-    greeting = yield Greet(name="world")
+    greeting = yield from Greet(name="world")
     print(greeting)
 ```
 
@@ -243,7 +252,7 @@ def depend_on_both_abilities() -> Depend[SomeAbility | AnotherAbility, None]:
     yield from g()
 ```
 
-One way to think about abilities is as a generalization of exceptions: when a function needs to have an ability handled it passes the ability up the call stack until an appropriate handler is found, similar to how a raised exception travels up the call stack. In contrast with exception handling however, once the ability is handled, the result of handling the ability is returned to function that yielded it in the first place, and execution resumes.
+One way to think about abilities is as a generalization of exceptions: when a function needs to have an ability handled it passes the ability up the call stack until an appropriate handler is found, similar to how a raised exception travels up the call stack. In contrast with exception handling however, once the ability is handled, the result of handling the ability is returned to the function that yielded it in the first place, and execution resumes.
 
 Like exceptions, abilities can be partially handled (with type-safety):
 
@@ -453,12 +462,16 @@ async def run_async(effect: Effect[Async, Exception, R]) -> R: ...
 ```
 
 `run_async` simply awaits `asyncio` coroutines yielded by effects. The reason `stateless.run` does not need the `Async` effect handled is because `stateless.run` just calls `asyncio.run(run_async(effect))`.
+This also means that it is always safe to call e.g `asyncio.get_running_loop` from functions that return effects.
 
 
 To run effects in other process/threads, use `stateless.fork`, defined as:
 
 
 ```python
+from stateless import Task, Depend, Need, Executor, Try
+
+
 def fork[**P, R](f: Callable[P, Try[Exception, R]]) -> Callable[P, Depend[Need[Executor], Task[R]]]: ...
 ```
 
@@ -504,7 +517,7 @@ with ProcessPoolExecutor as pool:
 
 `fork` will simply call `stateless.run` in the remote process/thread, so all abilities of `f` must be handled before forking.
 
-Moreover, all unhandled errors yielded by `f` will be raised in the remote thread, so if you want to handle errors from forked effect in the main process/thread, you need to use `stateless.catch` before forking:
+Moreover, all unhandled errors yielded by `f` will be raised in the remote thread/process, so if you want to handle errors from forked effects in the main process/thread, you need to use `stateless.catch` before forking:
 
 
 ```python
