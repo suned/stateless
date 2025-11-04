@@ -468,7 +468,7 @@ async def run_async(effect: Effect[Async, Exception, R]) -> R: ...
 This also means that it is always safe to call e.g `asyncio.get_running_loop` from functions that return effects.
 
 
-To run effects in other process/threads, use `stateless.fork`, defined as:
+To run effects in other process/threads, use the `stateless.fork` decorator, defined as:
 
 
 ```python
