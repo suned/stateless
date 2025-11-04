@@ -140,7 +140,7 @@ class Greet(Ability[str]):
 
 When `Greet` inherits from `Ability[str]`, it means that when a function yields an instance of `Greet`, the function should expect that the result of handling `Greet` has type `str`.
 
-You may recall that the "send" type of `stateless.Effect` is `Any`. This is because functions using effects may depend on multiple abilities that return different types of values when handled,
+You may recall that the "send" type of `stateless.Effect` is `Any`. This is because functions that return effects may depend on multiple abilities that return different types of values when handled,
 so in general we can't say what the "send" type should be.
 
 The `Abilities.__iter__` method is a way to get around this. The send and return types are `R`, which allows your type-checker to correctly infer the type of handling an ability by using `yield from`.
