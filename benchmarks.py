@@ -2,9 +2,21 @@ from functools import reduce
 from typing import Callable
 
 from pytest_benchmark.fixture import BenchmarkFixture
-from stateless import Ability, Depend, Need, Success, handle, need, run, success, supply
-from stateless.errors import UnhandledAbilityError
 from typing_extensions import Never
+
+from stateless import (
+    Ability,
+    Depend,
+    Handler,
+    Need,
+    Success,
+    handle,
+    need,
+    run,
+    success,
+    supply,
+)
+from stateless.errors import UnhandledAbilityError
 
 
 def create_effect_chain(chain_length: int) -> Callable[[], Success[None]]:
@@ -41,7 +53,7 @@ def never_handler(_: Ability) -> Never:
     raise UnhandledAbilityError()
 
 
-test_handler = handle(never_handler)
+dummy_handler: Handler[Never] = handle(never_handler)
 
 
 def create_handler_chain(chain_length: int) -> Callable[[], Success[str]]:
@@ -52,7 +64,7 @@ def create_handler_chain(chain_length: int) -> Callable[[], Success[str]]:
     def wrap_test_handler(
         f: Callable[[], Depend[Need[str], str]],
     ) -> Callable[[], Depend[Need[str], str]]:
-        return test_handler(f)
+        return dummy_handler(f)
 
     g = reduce(lambda acc, _: wrap_test_handler(acc), range(chain_length - 1), base)
 
