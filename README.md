@@ -59,7 +59,7 @@ def read_file(path: str) -> Effect[Need[Files], Never, str]:
 
 # Simple effects can be combined into complex ones by
 # depending on multiple abilities.
-def process_file(path: str) -> Effect[Need[Files] | Need[Console], Never, None]:
+def print_file(path: str) -> Effect[Need[Files] | Need[Console], Never, None]:
     # catch will return exceptions yielded by other functions
     result = yield from catch(OSError)(read_file)(path)
     match result:
