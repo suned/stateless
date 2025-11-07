@@ -14,7 +14,6 @@
             packages = [
               pkgs.python313
               pkgs.just
-              pkgs.poetry
               pkgs.uv
             ];
           };
