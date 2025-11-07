@@ -23,29 +23,14 @@ runs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ inputs.python-version }}
-    - name: load cached Poetry installation
-      id: cached-poetry
-      uses: actions/cache@v3
+    - name: install uv
+      uses: astral-sh/setup-uv@v6
       with:
-        path: ~/.local
-        key: poetry-0 # increment to reset cache
-    - name: install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: ${{ inputs.poetry-version }}
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-        installer-parallel: true
-    - name: load cached venv
-      id: cached-poetry-dependencies
-      uses: actions/cache@v3
-      with:
-        path: .venv
-        key: venv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-    - name: install dependencies
-      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        version: "0.9.6"
+        enable-cache: true
+    - name: install the project
       shell: bash
-      run: poetry install --no-interaction
+      run: uv sync --locked --all-extras --dev
     - name: install just
       uses: extractions/setup-just@v1
       with:

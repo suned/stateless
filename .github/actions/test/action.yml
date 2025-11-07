@@ -15,11 +15,11 @@ runs:
         python-version: ${{ inputs.python-version}}
     - name: run tests
       shell: bash
-      run: poetry run just test
+      run: uv run just test
     - name: generate report
       if: failure()
       shell: bash
-      run: poetry run coverage html
+      run: uv run coverage html
     - name: upload report
       if: failure()
       uses: actions/upload-artifact@v4
