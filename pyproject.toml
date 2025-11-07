@@ -15,12 +15,13 @@ dev = [
     "mypy>=1.6.1,<2",
     "ipdb>=0.13.13,<0.14",
     "ipython>=8.17.2,<9",
-    "pytest>=7.4.3,<8",
+    "pytest>=8.2,<8.3",
     "pyright>=1.1.336,<2",
     "pre-commit>=3.5.0,<4",
     "ruff>=0.14.2,<0.15",
     "coverage>=7.3.2,<8",
     "toml>=0.10.2,<0.11",
+    "pytest-benchmark>=5.2.1,<5.3"
 ]
 
 [build-system]

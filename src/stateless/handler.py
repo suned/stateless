@@ -9,6 +9,7 @@ from typing import (
     ParamSpec,
     TypeVar,
     cast,
+    get_origin,
     get_type_hints,
     overload,
 )
@@ -125,6 +126,7 @@ def handle(f: Callable[[A2], Any]) -> Handler[A2]:
             "1 annotated argument."
         )
     t, *_ = d.values()
+    t = get_origin(t) or t
 
     def on(ability: A2) -> Any:
         if not isinstance(ability, t):
