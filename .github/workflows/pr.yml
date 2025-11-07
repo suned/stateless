@@ -28,4 +28,4 @@ jobs:
           path: ~/.cache/pre-commit/
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: lint
-        run: poetry run just lint
+        run: uv run just lint

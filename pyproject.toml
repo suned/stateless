@@ -3,7 +3,7 @@ name = "stateless"
 version = "0.5.2"
 description = "Statically typed, purely functional effects for Python"
 authors = [{ name = "suned", email = "sd@dybro-debel.dk" }]
-requires-python = "~=3.10"
+requires-python = ">=3.10"
 readme = "README.md"
 dependencies = [
     "typing-extensions>=4.8.0,<5",
