@@ -8,7 +8,6 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Coroutine,
     Generic,
     ParamSpec,
     TypeVar,
@@ -124,7 +123,7 @@ def _process_target(payload: bytes) -> bytes:
 
 
 @overload
-def wait(target: Coroutine[Any, Any, R]) -> Depend[Async, R]:
+def wait(target: Awaitable[R]) -> Depend[Async, R]:
     ...
 
 
@@ -133,7 +132,9 @@ def wait(target: Task[R]) -> Effect[Async, E, R]:
     ...
 
 
-def wait(target: Coroutine[Any, Any, R] | Task[R]) -> Effect[Async, E, R]:
+def wait(
+    target: Awaitable[R] | Task[R],
+) -> Effect[Async, E, R]:
     """
     Wait for the result of `target` using the `Async` ability.
 
