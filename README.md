@@ -706,3 +706,5 @@ Using coroutines for algebraic effects solves many of the challenges with monadi
 - [Eff language](https://www.eff-lang.org/)
 
 - [Effekt language](https://effekt-lang.org/)
+
+- [flix language](https://flix.dev/)
