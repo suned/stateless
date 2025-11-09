@@ -670,9 +670,6 @@ Moreover, monads famously do not compose, meaning that when writing code that ne
 
 Additionally, in languages with dynamic binding such as Python, calling functions is relatively expensive, which means that using callbacks as the principal method for resuming computation comes with a fair amount of performance overhead.
 
-Finally, interpreting monads is often a recursive procedure, meaning that it's necessary to worry about stack safety in languages without tail call optimisation such as Python. This is usually solved using [trampolines](https://en.wikipedia.org/wiki/Trampoline_(computing)) which further adds to the performance overhead.
-
-
 Because of all these practical challenges of programming with monads, people have been looking for alternatives. Algebraic effects is one suggested solution that address many of the challenges of monadic effect systems.
 
 In algebraic effect systems, such as `stateless`, the programmer still supplies the effect system with a description of the side-effect to be carried out, but instead of supplying a callback function to resume the
