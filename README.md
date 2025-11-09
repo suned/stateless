@@ -115,7 +115,7 @@ type Success[R] = Effect[Never, Never, R]         # for effects that don't fail 
 ```
 
 
-Lets define a simple ability. `stateless.Ability` is defined as:
+Let's define a simple ability. `stateless.Ability` is defined as:
 
 ```python
 from typing import Self
@@ -215,7 +215,7 @@ run(hello_world())  # type-checker error!
 
 We'll get a type-checker error since we can't run an effect with unhandled abilities.
 
-Lets try this instead:
+Let's try this instead:
 
 ```python
 effect = handle(greet)(hello_world)()
@@ -392,7 +392,7 @@ def say_hello() -> Depend[Need[Console], None]:
 ```
 
 A major purpose of dependency injection is to vary the injected ability to change the behavior of the effect. For example, we
-might want to change the behavior of `say_hello` in tests. Lets define a subtype of `Console` to use in a test:
+might want to change the behavior of `say_hello` in tests. Let's define a subtype of `Console` to use in a test:
 
 
 ```python
@@ -404,7 +404,7 @@ When trying to handle `Need[Console]` with `supply(MockConsole())`, you may need
 
 To assist with type inference for type checkers with local type narrowing, stateless supplies a utility function `as_type`, that tells your type checker to treat a subtype as a supertype in a certain context.
 
-Lets use `as_type` with `supply`:
+Let's use `as_type` with `supply`:
 ```python
 from stateless import as_type, supply
 
