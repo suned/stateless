@@ -5,7 +5,7 @@ Statically typed, purely functional effects for Python.
 # Motivation
 Programming with side-effects is hard: To reason about a unit in your code, like a function, you need to know what the other units in the program are doing to the program state, and understand how that affects what you're trying to achieve.
 
-Programming without side-effects is _less_ hard: To reason about a unit in you code, like a function, you can focus on what _that_ function is doing, since the units it interacts with don't affect the state of the program in any way.
+Programming without side-effects is _less_ hard: To reason about a unit in your code, like a function, you can focus on what _that_ function is doing, since the units it interacts with don't affect the state of the program in any way.
 
 But of course side-effects can't be avoided, since what we ultimately care about in programming are the side effects, such as printing to the console or writing to a database.
 
@@ -15,10 +15,21 @@ As a result, "business logic" code never performs side-effects, which makes it e
 
 # Quickstart
 
+## Install
+
+
+```console
+> pip install stateless
+```
+
+
+## Usage
+
+
 ```python
 from typing import Any, Never
 
-from stateless import Effect, Need, need, throws, catch, run
+from stateless import Effect, Need, need, throws, catch, run, supply
 
 
 # stateless.Effect is just an alias for:
@@ -50,7 +61,7 @@ def print_(value: Any) -> Effect[Need[Console], Never, None]:
 # Effects can yield exceptions. 'stateless.throws' will catch exceptions
 # for you and yield them to other functions so you can handle them with
 # type safety. The return type of the decorated function in this
-# example is: ´Effect[Need[Files], OSError, str]'
+# example is: ´Effect[Need[Files], OSError, str]`
 @throws(OSError)
 def read_file(path: str) -> Effect[Need[Files], Never, str]:
     files = yield from need(Files)
@@ -91,7 +102,7 @@ from stateless import Ability
 
 type Effect[A: Ability, E: Exception, R] = Generator[A | E, Any, R]
 ```
-In other words, an `Effect` is a generator that can yield values of type `A` or exceptions of type `E`, can be sent anything, and returns results of type `R`. Let's break that down a bit further:
+In other words, an `Effect` is a generator that can yield values of type `A` or error values of type `E`, can be sent anything, and returns results of type `R`. Let's break that down a bit further:
 
 -  The type parameter `A` stands for _"Ability"_. This is the type of value, or types of values, that must be handled in order for the effect to produce its result.
 
@@ -158,7 +169,7 @@ def hello_world() -> Effect[Greet, Never, None]:
     print(greeting)
 ```
 
-When `hello_world` returns an `Effect[Greet, Never, None]`, it means that it depends on the `Greet` ability (`A` is parameterized with `Greet`). It doesn't produce errors (`E` is parameterized with `Never`), and it doesn't return a value (`R` is parameterized with `None`).
+When `hello_world` has return type `Effect[Greet, Never, None]`, it means that it depends on the `Greet` ability (`A` is parameterized with `Greet`). It doesn't produce errors (`E` is parameterized with `Never`), and it doesn't return a value (`R` is parameterized with `None`).
 
 To run an `Effect` that depends on abilities, you need to handle all of the abilities yielded by that effect. Abilities are handled using `stateless.Handler`, defined as:
 
@@ -203,7 +214,7 @@ def run[R](effect: Effect[Async, Exception, R]) -> R:
     ...
 ```
 
-In words: the effect passed to `run` must have had all of its abilities handled (except the built-in `Async` ability. Don't worry about this for now, we'll explain it later). The result of running `effect` is the result type `R`.
+In words: the effect passed to `run` must depend **only** on the built-in `Async` ability (Don't worry about the `Async` ability for now, we'll explain it later). All other abilities must have been handled before calling `run`. The result of running `effect` is the result type `R`.
 
 If we try to do:
 ```python
@@ -355,6 +366,9 @@ This means that:
 
 ## Built-in Abilities
 
+While you can write your own abilities and handlers, `stateless` supplies a few
+built-in abilities.
+
 ### Need
 
 `Need` is an ability for type-safe dependency injection. By "type-safe" we mean:
@@ -404,13 +418,23 @@ When trying to handle `Need[Console]` with `supply(MockConsole())`, you may need
 
 To assist with type inference for type checkers with local type narrowing, stateless supplies a utility function `as_type`, that tells your type checker to treat a subtype as a supertype in a certain context.
 
+`as_type` has type:
+
+
+```python
+from typing import Type, Callable
+
+
+def as_type[T](t: Type[T]) -> Callable[[T], T]: ...
+```
+
 Let's use `as_type` with `supply`:
 ```python
 from stateless import as_type, supply
 
 
 console = as_type(Console)(MockConsole())
-effect = supply(console)(say_hello)('foo.txt')
+effect = supply(console)(say_hello)()
 run(effect)
 ```
 Using `as_type`, our type checker has correctly inferred that the `Need[Console]` ability yielded by `say_hello` was eliminated by `supply(console)`.
@@ -418,7 +442,7 @@ Using `as_type`, our type checker has correctly inferred that the `Need[Console]
 ### Async
 The `Async` ability is used to run code asynchronously, either with `asyncio` or `concurrent.futures`.
 
-to use the result of an `asyncio` coroutine in an effect, use the `stateless.wait` function. Its defined as:
+To use the result of an `asyncio` coroutine in an effect, use the `stateless.wait` function. Its defined as:
 
 
 ```python
@@ -564,9 +588,9 @@ def f() -> Success[str]:
 time = Time()
 effect = supply(time)(f)()
 result = run(effect)
-print(run)  # outputs: ("hi!", "hi!")
+print(result)  # outputs: ("hi!", "hi!")
 ```
-Effects created through repeat depends on the `Need[stateless.Time]` because it needs to sleep between each execution of the effect.
+Effects created through repeat depends on the `Need[stateless.Time]` ability because it needs to sleep between each execution of the effect.
 
 Schedules are a good example of a pattern used a lot in `stateless`: Classes with an `__iter__` method that returns effects.
 
@@ -631,6 +655,7 @@ def g() -> Depend[Need[Console], tuple[str, str]]:
     first = yield from f()
     second = yield from f()
     return first, second
+
 
 console = Console()
 effect = supply(console)(f)()
