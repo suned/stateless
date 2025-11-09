@@ -19,7 +19,7 @@ from stateless import (
 from stateless.effect import SuccessEffect
 from stateless.functions import RetryError
 from stateless.need import need
-from stateless.schedule import Recurs, Spaced
+from stateless.schedule import recurs, spaced
 from stateless.time import Time
 
 from tests.utils import run_with_abilities
@@ -98,7 +98,7 @@ def test_throws() -> None:
 
 
 def test_repeat() -> None:
-    @repeat(Recurs(2, Spaced(timedelta(seconds=1))))
+    @repeat(recurs(2, spaced(timedelta(seconds=1))))
     def effect() -> Success[int]:
         return success(42)
 
@@ -106,7 +106,7 @@ def test_repeat() -> None:
 
 
 def test_repeat_on_error() -> None:
-    @repeat(Recurs(2, Spaced(timedelta(seconds=1))))
+    @repeat(recurs(2, spaced(timedelta(seconds=1))))
     def effect() -> Try[RuntimeError, Never]:
         return throw(RuntimeError("oops"))
 
@@ -115,7 +115,7 @@ def test_repeat_on_error() -> None:
 
 
 def test_retry() -> None:
-    @repeat(Recurs(2, Spaced(timedelta(seconds=1))))
+    @repeat(recurs(2, spaced(timedelta(seconds=1))))
     def effect() -> Try[RuntimeError, Never]:
         return throw(RuntimeError("oops"))
 
@@ -126,7 +126,7 @@ def test_retry() -> None:
 def test_retry_on_eventual_success() -> None:
     counter = 0
 
-    @retry(Recurs(2, Spaced(timedelta(seconds=1))))
+    @retry(recurs(2, spaced(timedelta(seconds=1))))
     def effect() -> Effect[Never, RuntimeError, int]:
         nonlocal counter
         if counter == 1:
@@ -138,7 +138,7 @@ def test_retry_on_eventual_success() -> None:
 
 
 def test_retry_on_failure() -> None:
-    @retry(Recurs(2, Spaced(timedelta(seconds=1))))
+    @retry(recurs(2, spaced(timedelta(seconds=1))))
     def effect() -> Effect[Never, RuntimeError, int]:
         return throw(RuntimeError("oops"))
 

@@ -539,13 +539,13 @@ from datetime import timedelta
 from stateless import Depend, Ability
 
 
-class Schedule[A: Ability](Protocol):
+class Schedule[A: Ability]:
     def __iter__(self) -> Depend[A, Iterator[timedelta]]:
         ...
 ```
 The type parameter `A` is present because some schedules may require abilities to complete.
 
-The `stateless.schedule` module contains a number of of helpful implemenations of `Schedule`, for example `Spaced` or `Recurs`.
+The `stateless.schedule` module contains a number of of helpful implementations of `Schedule`, for example `spaced` or `recurs`.
 
 Schedules can be used with the `repeat` decorator, which takes schedule as its first argument and repeats the decorated function returning an effect until the schedule is exhausted or an error occurs:
 
@@ -553,11 +553,11 @@ Schedules can be used with the `repeat` decorator, which takes schedule as its f
 from datetime import timedelta
 
 from stateless import repeat, success, Success, supply, run
-from stateless.schedule import Recurs, Spaced
+from stateless.schedule import recurs, spaced
 from stateless.time import Time
 
 
-@repeat(Recurs(2, Spaced(timedelta(seconds=2))))
+@repeat(recurs(2, spaced(timedelta(seconds=2))))
 def f() -> Success[str]:
     return success("hi!")
 
@@ -574,7 +574,7 @@ This is a useful pattern because such objects can be yielded from in functions r
 
 ```python
 def this_works() -> Success[timedelta]:
-    schedule = Spaced(timedelta(seconds=2))
+    schedule = spaced(timedelta(seconds=2))
     deltas = yield from schedule
     deltas_again = yield from schedule  # safe!
     return deltas
@@ -589,14 +589,14 @@ when the decorated function yields no errors, or fails when the schedule is exha
 from datetime import timedelta
 
 from stateless import retry, throw, Try, throw, success, supply, run
-from stateless.schedule import Recurs, Spaced
+from stateless.schedule import recurs, spaced
 from stateless.time import Time
 
 
 fail = True
 
 
-@retry(Recurs(2, Spaced(timedelta(seconds=2))))
+@retry(recurs(2, spaced(timedelta(seconds=2))))
 def f() -> Try[RuntimeError, str]:
     global fail
     if fail:

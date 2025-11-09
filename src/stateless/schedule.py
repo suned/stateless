@@ -3,8 +3,9 @@
 import itertools
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Iterator, Protocol, TypeVar
-from typing import NoReturn as Never
+from typing import Any, Callable, Generic, Iterator, TypeVar
+
+from typing_extensions import Never
 
 from stateless.ability import Ability
 from stateless.effect import Depend, Success, success
@@ -12,33 +13,46 @@ from stateless.effect import Depend, Success, success
 A = TypeVar("A", covariant=True, bound=Ability[Any])
 
 
-class Schedule(Protocol[A]):
+@dataclass(frozen=True)
+class Schedule(Generic[A]):
     """An iterator of timedeltas depending on stateless abilities."""
 
-    def __iter__(self) -> Depend[A, Iterator[timedelta]]:
-        """Iterate over the schedule."""
-        ...  # pragma: no cover
-
-
-@dataclass(frozen=True)
-class Spaced(Schedule[Never]):
-    """A schedule that yields a timedelta at a fixed interval forever."""
-
-    interval: timedelta
-
-    def __iter__(self) -> Success[Iterator[timedelta]]:
-        """Iterate over the schedule."""
-        return success(itertools.repeat(self.interval))
-
-
-@dataclass(frozen=True)
-class Recurs(Schedule[A]):
-    """A schedule that yields timedeltas from the schedule given as arguments fixed number of times."""
-
-    n: int
-    schedule: Schedule[A]
+    schedule: Callable[[], Depend[A, Iterator[timedelta]]]
 
     def __iter__(self) -> Depend[A, Iterator[timedelta]]:
         """Iterate over the schedule."""
-        deltas = yield from self.schedule
-        return itertools.islice(deltas, self.n)
+        return self.schedule()
+
+
+def spaced(interval: timedelta) -> Schedule[Never]:
+    """
+    Create a schedule that yields a fixed timedelta forever.
+
+    Args:
+    ----
+        interval: the fixed interval to yield.
+
+    """
+
+    def schedule() -> Success[Iterator[timedelta]]:
+        return success(itertools.repeat(interval))
+
+    return Schedule(schedule)
+
+
+def recurs(n: int, schedule: Schedule[A]) -> Schedule[A]:
+    """
+    Create  schedule that yields timedeltas from the schedule given as arguments fixed number of times.
+
+    Args:
+    ----
+        n: the number of times to yield from `schedule`.
+        schedule: The schedule to yield from.
+
+    """
+
+    def _() -> Depend[A, Iterator[timedelta]]:
+        deltas = yield from schedule
+        return itertools.islice(deltas, n)
+
+    return Schedule(_)
