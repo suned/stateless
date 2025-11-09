@@ -539,13 +539,13 @@ from datetime import timedelta
 from stateless import Depend, Ability
 
 
-class Schedule[A: Ability](Protocol):
+class Schedule[A: Ability]:
     def __iter__(self) -> Depend[A, Iterator[timedelta]]:
         ...
 ```
 The type parameter `A` is present because some schedules may require abilities to complete.
 
-The `stateless.schedule` module contains a number of of helpful implemenations of `Schedule`, for example `Spaced` or `Recurs`.
+The `stateless.schedule` module contains a number of of helpful implementations of `Schedule`, for example `spaced` or `recurs`.
 
 Schedules can be used with the `repeat` decorator, which takes schedule as its first argument and repeats the decorated function returning an effect until the schedule is exhausted or an error occurs:
 
@@ -553,11 +553,11 @@ Schedules can be used with the `repeat` decorator, which takes schedule as its f
 from datetime import timedelta
 
 from stateless import repeat, success, Success, supply, run
-from stateless.schedule import Recurs, Spaced
+from stateless.schedule import recurs, spaced
 from stateless.time import Time
 
 
-@repeat(Recurs(2, Spaced(timedelta(seconds=2))))
+@repeat(recurs(2, spaced(timedelta(seconds=2))))
 def f() -> Success[str]:
     return success("hi!")
 
@@ -574,7 +574,7 @@ This is a useful pattern because such objects can be yielded from in functions r
 
 ```python
 def this_works() -> Success[timedelta]:
-    schedule = Spaced(timedelta(seconds=2))
+    schedule = spaced(timedelta(seconds=2))
     deltas = yield from schedule
     deltas_again = yield from schedule  # safe!
     return deltas
@@ -589,14 +589,14 @@ when the decorated function yields no errors, or fails when the schedule is exha
 from datetime import timedelta
 
 from stateless import retry, throw, Try, throw, success, supply, run
-from stateless.schedule import Recurs, Spaced
+from stateless.schedule import recurs, spaced
 from stateless.time import Time
 
 
 fail = True
 
 
-@retry(Recurs(2, Spaced(timedelta(seconds=2))))
+@retry(recurs(2, spaced(timedelta(seconds=2))))
 def f() -> Try[RuntimeError, str]:
     global fail
     if fail:
@@ -670,10 +670,7 @@ Moreover, monads famously do not compose, meaning that when writing code that ne
 
 Additionally, in languages with dynamic binding such as Python, calling functions is relatively expensive, which means that using callbacks as the principal method for resuming computation comes with a fair amount of performance overhead.
 
-Finally, interpreting monads is often a recursive procedure, meaning that it's necessary to worry about stack safety in languages without tail call optimisation such as Python. This is usually solved using [trampolines](https://en.wikipedia.org/wiki/Trampoline_(computing)) which further adds to the performance overhead.
-
-
-Because of all these practical challenges of programming with monads, people have been looking for alternatives. Algebraic effects is one the things suggested that address many of the challenges of monadic effect systems.
+Because of all these practical challenges of programming with monads, people have been looking for alternatives. Algebraic effects is one suggested solution that address many of the challenges of monadic effect systems.
 
 In algebraic effect systems, such as `stateless`, the programmer still supplies the effect system with a description of the side-effect to be carried out, but instead of supplying a callback function to resume the
 computation with, the result of handling the effect is returned to the point in program execution that the effect description was produced. The main drawback of this approach is that it requires special language features to do this. In Python however, such a language feature _does_ exist: Generators and coroutines.
