@@ -366,9 +366,6 @@ This means that:
 
 ## Built-in Abilities
 
-While you can write your own abilities and handlers, `stateless` supplies a few
-built-in abilities.
-
 ### Need
 
 `Need` is an ability for type-safe dependency injection. By "type-safe" we mean:
