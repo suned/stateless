@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: 3.12
       - name: set version
-        run: uv version ${{ github.event.release.tag_name }}
+        run: uv version ${{ github.ref }}
       - name: release
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
