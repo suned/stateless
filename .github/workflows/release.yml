@@ -27,8 +27,10 @@ jobs:
         with:
           python-version: 3.12
       - name: set version
-        run: poetry version ${{ github.event.release.tag_name }}
+        run: uv version ${{ github.event.release.tag_name }}
       - name: release
         env:
-          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
-        run: poetry publish --build
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          uv build
+          uv publish
