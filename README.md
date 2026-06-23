@@ -305,7 +305,7 @@ def read_file(path: str) -> str:
         return f.read()
 
 
-reveal_type(read_file):  # Revealed type is: Callable[[str], Try[FileNotFoundError | PermissionError, str]]
+reveal_type(read_file)  # Revealed type is: Callable[[str], Try[FileNotFoundError | PermissionError, str]]
 ```
 
 Error handling in `stateless` is done using the `stateless.catch` decorator. Its signature is:
