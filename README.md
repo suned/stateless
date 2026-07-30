@@ -666,42 +666,109 @@ is cached based on the arguments of the decorated function. In fact, `memoize` t
 
 See the [issues](https://github.com/suned/stateless/issues) page.
 
-# Algebraic Effects Vs. Monads
+# Why Generators?
 
-All functional effect system work essentially the same way:
+Every functional effect system has the same two-step shape:
 
-1. Programs send a description of the side-effect needed to be performed to the effect system and pause their executing while the effect system handles the side-effect.
-2. Once the result of performing the side-effect is ready, program execution is resumed at the point it was paused
+1. Your code describes a side-effect it needs performed, and pauses.
+2. Something else performs the side-effect, and your code resumes from where it
+   paused with the result.
 
-Step 2. is the tricky part: how can program execution be resumed at the point it was paused?
+Step 2 is the interesting part. How does a paused function get resumed?
 
-[Monads](https://en.wikipedia.org/wiki/Monad_(functional_programming)) are the most common solution. When programming with monads, in addition to supplying the effect system with a description of a side-effect, the programmer also supplies a function to
-be called with the result of handling the described effect. In functional programming such a function is called a _continuation_. In other paradigms it might be called a _callback function_.
+## The callback approach
 
-For example it might look like this:
+The oldest answer is that your code hands over a function to be called with the
+result. If `stateless` worked this way, `say_hello` would look something like
+this (this is not real `stateless` code):
 
 ```python
 def say_hello() -> IO[None]:
-    return Input("whats your name?").bind(lambda name: Print(f"Hello, {name}!"))
+    return Input("What's your name?").bind(
+        lambda name: Print(f"Hello, {name}!")
+    )
 ```
-One of the main benefits of basing effect systems on monads is that they don't rely on any special language features: its all literally just functions.
 
-However, many programmers find monads awkward. Programming with callback functions often lead to code thats hard for humans to parse, which has ultimately inspired specialized language features for hiding the callback functions with syntax sugar like [Haskell's do notation](https://en.wikibooks.org/wiki/Haskell/do_notation), or [for comprehensions in Scala](https://docs.scala-lang.org/tour/for-comprehensions.html).
+`bind` means "when you have the result, call this function with it". The
+function you pass is the rest of your program.
 
-Moreover, monads famously do not compose, meaning that when writing code that needs to juggle multiple types of side-effects (like errors and IO), it's up to the programmer to pack and unpack results of various types of effects (or use advanced features like [monad transformers](https://en.wikibooks.org/wiki/Haskell/Monad_transformers) which come with their own set of problems).
+This works, and it has a real advantage: it needs no special language features.
+It's all just functions and objects.
 
-Additionally, in languages with dynamic binding such as Python, calling functions is relatively expensive, which means that using callbacks as the principal method for resuming computation comes with a fair amount of performance overhead.
+But Python programmers have seen where it leads, because it's how asynchronous
+code was written before `async`/`await`: every step you add is another layer of
+nesting, and reading the code means reading it inside-out. Languages that lean
+on this pattern add syntax to hide the nesting: Haskell has
+[do notation](https://en.wikibooks.org/wiki/Haskell/do_notation), Scala has
+[for comprehensions](https://docs.scala-lang.org/tour/for-comprehensions.html).
+Python has nothing comparable.
 
-Because of all these practical challenges of programming with monads, people have been looking for alternatives. Algebraic effects is one suggested solution that address many of the challenges of monadic effect systems.
+There's a second problem, which shows up as soon as you need two kinds of
+side-effect in the same function, such as reading a file that might fail. The
+`bind` machinery is defined per effect type, so combining two of them means
+either writing the wrapping and unwrapping by hand at every step, or reaching
+for a mechanism that stacks them for you (in Haskell these are called
+[monad transformers](https://en.wikibooks.org/wiki/Haskell/Monad_transformers)).
+Those mechanisms work, but they're fiddly in practice: the order you stack them
+in changes the behaviour, the types get long, and adding a third effect tends to
+mean touching code that had nothing to do with it.
 
-In algebraic effect systems, such as `stateless`, the programmer still supplies the effect system with a description of the side-effect to be carried out, but instead of supplying a callback function to resume the
-computation with, the result of handling the effect is returned to the point in program execution that the effect description was produced. The main drawback of this approach is that it requires special language features to do this. In Python however, such a language feature _does_ exist: Generators and coroutines.
+And in Python there's a cost on top of all that. Every step of every effect is a
+function call, and function calls in CPython are not cheap.
 
-Using coroutines for algebraic effects solves many of the challenges with monadic effect systems:
+## The generator approach
 
-- No callback functions are required, so readability and understandability of the effectful code is much more straightforward.
-- Code that needs to describe side-effects can simply list all the effects it requires, so there is no composition problem.
-- There are no callback functions, so no need to worry about performance overhead of calling a large number of functions or using trampolines to ensure stack safety.
+`stateless` gets the same result without writing any callbacks. When an effect
+yields an ability, Python suspends the generator, and the handler resumes it by
+sending the result back in:
+
+```python
+def say_hello() -> Depend[Need[Console], None]:
+    console = yield from need(Console)
+    console.print("Hello, world!")
+```
+
+Everything after the `yield from` *is* the callback. You just didn't have to
+write it, because the generator frame already holds it for you. That's the whole
+trick, and the rest follows from it:
+
+- Effects read top-to-bottom, like ordinary Python.
+- A function that needs two abilities lists both in its type and yields from
+  each. There's nothing to stack and nothing to unwrap.
+- No chain of closures per effect, and no trampoline needed to keep the stack
+  from growing.
+
+## Isn't this just a monad?
+
+Essentially yes, and deliberately so.
+
+The callback version above has a name in the literature: it's the *free monad*.
+What `stateless` does is the same construction, with the paused computation
+stored in a generator frame instead of a chain of closures. If you're
+comfortable with the terminology: `stateless` effects are a `Freer` monad, and
+`yield from` does the work of `bind`.
+
+Both approaches can express the same things. What separates them is how much you
+have to write and what it costs to run. Generators buy readable effectful code,
+effect composition with no stacking machinery, and far fewer Python-level
+function calls. Those are good reasons to prefer them.
+
+If you've never come across monads, none of this section matters. You don't need
+any of that vocabulary to use `stateless`, which is rather the point.
+
+## One limitation worth knowing about
+
+A Python generator can be resumed, but it can't be forked: there's no way to run
+the same paused effect forward twice along two different paths.
+
+So handlers in `stateless` resume a computation at most once. Handlers that need to
+resume more than once can't be expressed. For example, you can't write a handler
+for a "choose between these two values" ability that explores both branches and
+collects every result. Effect systems built on first-class continuations can do
+this; generators can't.
+
+This is a deliberate trade, and it's the reason the literature describes this
+style as *one-shot* algebraic effects.
 
 
 # Background
